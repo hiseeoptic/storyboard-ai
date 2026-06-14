@@ -345,6 +345,7 @@ export function buildSegmentFirstFramePrompt(params: {
 
   const hasProduct =
     (params.references ?? []).some((r) => r.role === "product") || !!params.productDna;
+  const hasSetting = (params.references ?? []).some((r) => r.role === "setting");
 
   const target = Math.min(5, Math.max(3, params.beatsPerSegment ?? params.beats.length ?? 3));
   const beats = params.beats.slice(0, target);
@@ -379,7 +380,7 @@ THE BOARD CONTAINS THESE ZONES IN ONE IMAGE:
 
 ■ TOP — "CHARACTER REFERENCE" strip (REPEAT THIS IN EVERY SHOT): ${refStrip} Small label "CHARACTER REF". Character: ${params.characterDescription}.
 
-■ LEFT — "SCENE OVERVIEW": one larger establishing panel showing the full location/environment of this shot (wide angle)${hasProduct ? ", with the product clearly visible on a surface" : ""}. This tells Veo the setting.
+■ LEFT — "SCENE OVERVIEW": one larger establishing panel showing the full location/environment of this shot (wide angle)${hasProduct ? ", with the product clearly visible on a surface" : ""}. ${hasSetting ? "CRITICAL: reproduce the EXACT location from the attached interior reference photo — the SAME cabinet style & colour, wall, tiles, countertop, window, appliances and overall layout. Do NOT invent or restyle a different kitchen. This identical location must also appear behind every action panel." : "This tells Veo the setting."}
 
 ■ RIGHT / BOTTOM — "ACTION SEQUENCE": ${target} numbered action panels (${numberLabels}) laid out left → right showing the ${target} key moments across the 8 seconds, each a small illustration with a SHORT caption under it describing the action:
 ${panelLines}
@@ -389,7 +390,7 @@ ${params.productDna ? `PRODUCT DNA (identical in every panel, with exact colours
 ${continuity}
 ${directive}
 
-RULES: ONE cohesive board image; the SAME individual (identical face, hair, glasses, outfit) AND the SAME product appear in the character-ref strip, the scene overview and all ${target} action panels; one single location for this whole board; thin clean dividers and small numbered badges; captions short and legible. ${SHARED_NEGATIVE}`;
+RULES: ONE cohesive board image; the SAME individual (identical face, hair, eyewear and outfit) AND the SAME product appear in the character-ref strip, the scene overview and all ${target} action panels; ${hasSetting ? "the SAME exact kitchen/location from the interior reference photo" : "one single consistent location"} for this whole board; thin clean dividers and small numbered badges; captions short and legible. ${SHARED_NEGATIVE}`;
 }
 
 // ─── Step 4: Master Board (Character Sheet + captioned storyboard grid) ─────

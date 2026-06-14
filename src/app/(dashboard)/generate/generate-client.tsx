@@ -124,6 +124,14 @@ const t = {
     vi: "Mô tả ngoại hình (không bắt buộc nếu có ảnh)",
     en: "Appearance description (optional if uploading photos)",
   },
+  refExprTitle: { vi: "Biểu cảm trong ảnh tham chiếu", en: "Expressions in the reference strip" },
+  refExprHint: {
+    vi: "Mỗi board luôn có 3 góc mặt để khoá danh tính. Chọn thêm biểu cảm nếu muốn — nhưng nên để Veo tự diễn cảm xúc theo prompt (ít biểu cảm = mặt ít bị 'trôi', giống bạn hơn).",
+    en: "Every board always has 3 face angles to lock identity. Add expressions only if you want — best to let Veo act the emotion from the prompt (fewer expressions = less identity drift).",
+  },
+  refExpr0: { vi: "Không — để Veo tự diễn (khuyên dùng)", en: "None — let Veo act it (recommended)" },
+  refExpr2: { vi: "2 biểu cảm", en: "2 expressions" },
+  refExpr3: { vi: "3 biểu cảm", en: "3 expressions" },
   charPhotos: { vi: "Ảnh nhân vật", en: "Character Photos" },
   charPhotosHint: { vi: "Tải lên 2-3 ảnh từ các góc khác nhau", en: "Upload 2-3 photos from different angles" },
   addCharacter: { vi: "Thêm nhân vật", en: "Add Character" },
@@ -723,6 +731,9 @@ export function GenerateClient() {
   const [videoGoal, setVideoGoal] = useState<VideoGoal>("product_ad");
   const [imageQuality, setImageQuality] = useState<ImageQuality>("standard");
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
+  // Expression heads in each board's character-reference strip (0 = let Veo act
+  // the emotion from the prompt; 2-3 = include a small fixed set).
+  const [refExpressions, setRefExpressions] = useState(0);
   const [copiedSeg, setCopiedSeg] = useState<number | null>(null);
   const [zipping, setZipping] = useState(false);
 
@@ -864,6 +875,7 @@ export function GenerateClient() {
       key_message: keyMessage || undefined,
       image_quality: imageQuality,
       aspect_ratio: aspectRatio,
+      reference_expressions: refExpressions,
     };
 
     setProgressPercent(6);
@@ -1680,6 +1692,21 @@ export function GenerateClient() {
                   sourceImages={charImages}
                   onApprove={(img) => setCharImages((prev) => [...prev, img].slice(0, 6))}
                 />
+
+                {/* Expression control for the board CHARACTER REFERENCE strip */}
+                <div className="space-y-1.5 rounded-lg border border-dashed p-3">
+                  <label className="text-sm font-medium">{L("refExprTitle")}</label>
+                  <Select
+                    value={String(refExpressions)}
+                    onChange={(e) => setRefExpressions(Number(e.target.value))}
+                    options={[
+                      { value: "0", label: L("refExpr0") },
+                      { value: "2", label: L("refExpr2") },
+                      { value: "3", label: L("refExpr3") },
+                    ]}
+                  />
+                  <p className="text-xs text-muted-foreground">{L("refExprHint")}</p>
+                </div>
 
                 <Button variant="outline" size="sm" onClick={addCharacter} disabled={!charName.trim()}>
                   {L("addCharacter")}

@@ -334,6 +334,8 @@ export function buildSegmentFirstFramePrompt(params: {
   beatsPerSegment?: number;
   preserveRealFace?: boolean;
   references?: RefDescriptor[];
+  /** Expression heads to add to the ref strip on top of the 3 angles (0-3). */
+  referenceExpressions?: number;
 }): string {
   const directive = renderDirective(params.style, params.preserveRealFace ?? false);
   const refBlock = buildReferenceInstructions(params.references ?? []);
@@ -356,11 +358,24 @@ export function buildSegmentFirstFramePrompt(params: {
     ? "This is the opening shot of the whole video."
     : "Action panel 1 must continue seamlessly from the previous shot's final action (same character, wardrobe, lighting, location).";
 
+  // CHARACTER REFERENCE strip: 3 identity angles (always) + an optional, FIXED
+  // set of expression heads. We deliberately do NOT tie expressions to "this
+  // shot's emotion" — that forced every board to re-render emotional faces,
+  // which both over-used expressions and drifted the identity. Veo animates
+  // the per-shot emotion from the action captions instead.
+  const EXPRESSION_HEADS = ["calm neutral", "natural friendly smile", "confident"];
+  const expCount = Math.min(3, Math.max(0, params.referenceExpressions ?? 0));
+  const thumbTotal = 3 + expCount;
+  const refStrip =
+    expCount > 0
+      ? `a thin row of ${thumbTotal} small thumbnails of THE SAME main character to lock identity — FRONT face, 3/4 face, SIDE profile, plus ${expCount} expression head${expCount > 1 ? "s" : ""} (${EXPRESSION_HEADS.slice(0, expCount).join(", ")}). The face, hair and features must be IDENTICAL in every thumbnail — only the expression changes.`
+      : `a thin row of 3 small thumbnails of THE SAME main character to lock identity — FRONT face, 3/4 face, SIDE profile, all with a neutral relaxed expression. Do NOT add extra emotional expression heads; the character's emotion in the action panels is driven by the action captions only.`;
+
   return `${refBlock}SHOT ${params.segmentNumber} — a complete STORYBOARD BOARD for ONE ~8 second video clip, presented as ONE single horizontal image. This board gives an image-to-video model (Veo) full context: who the character is (from every angle), what the scene looks like${hasProduct ? ", the product" : ""}, and the ${target} actions that happen across the 8 seconds. ${params.style} style.
 
 THE BOARD CONTAINS THESE ZONES IN ONE IMAGE:
 
-■ TOP — "CHARACTER REFERENCE" strip (REPEAT THIS IN EVERY SHOT): a thin row of 5 small thumbnails of THE SAME main character to lock identity — FRONT face, 3/4 face, SIDE profile, plus 2 expression heads matching this shot's emotion. Small label "CHARACTER REF". Character: ${params.characterDescription}.
+■ TOP — "CHARACTER REFERENCE" strip (REPEAT THIS IN EVERY SHOT): ${refStrip} Small label "CHARACTER REF". Character: ${params.characterDescription}.
 
 ■ LEFT — "SCENE OVERVIEW": one larger establishing panel showing the full location/environment of this shot (wide angle)${hasProduct ? ", with the product clearly visible on a surface" : ""}. This tells Veo the setting.
 

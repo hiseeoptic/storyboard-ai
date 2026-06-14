@@ -153,6 +153,7 @@ interface RefContext {
   boardAspect: AspectRatio;
   quality: ImageQuality;
   beatsPerSegment: number;
+  referenceExpressions: number;
   dialogueLanguage: string;
   faceImg?: string;
   productImg?: string;
@@ -208,6 +209,7 @@ function buildRefContext(
     boardAspect: "16:9",
     quality: input.image_quality ?? "standard",
     beatsPerSegment: Math.min(5, Math.max(3, input.beats_per_segment ?? 3)),
+    referenceExpressions: Math.min(3, Math.max(0, input.reference_expressions ?? 0)),
     dialogueLanguage: input.dialogue_language ?? "Vietnamese",
     faceImg,
     productImg,
@@ -380,6 +382,7 @@ export async function generateBoardImage(params: {
       preserveRealFace: ctx.preserveRealFace,
       referenceImages: ctx.canChain && images.length > 0 ? images : undefined,
       references: ctx.canChain && descriptors.length > 0 ? descriptors : undefined,
+      referenceExpressions: ctx.referenceExpressions,
       provider,
       aspectRatio: ctx.boardAspect,
       quality: ctx.quality,

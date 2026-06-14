@@ -532,6 +532,101 @@ const VIDEO_GOAL_OPTIONS: Record<Lang, { value: VideoGoal; label: string }[]> = 
   ],
 };
 
+// ─── Description presets (dropdown instead of free typing) ──────────────────
+// FORCE_REF = "lock onto the uploaded reference photo for sync" — the option
+// the user picks so the tool reproduces the ref image exactly instead of
+// inventing from text.
+const FORCE_REF = "__force_ref__";
+
+// English instruction injected when FORCE_REF is chosen (it flows into the
+// image prompt as the subject's description).
+const FORCE_TEXT = {
+  character:
+    "Use the uploaded reference photo as the ABSOLUTE source of truth — reproduce this exact same person identically in every shot (same face, hairstyle, build); do not restyle or invent a different look.",
+  product:
+    "Use the uploaded product photo as the ABSOLUTE source of truth — reproduce the exact same product identically (same shape, colour, material, branding); do not redesign or swap it.",
+  background:
+    "Use the uploaded interior photo as the ABSOLUTE source of truth — reproduce the exact same location identically (same cabinets, colours, layout, window, appliances); do not invent a different place.",
+} as const;
+
+const CHAR_APPR_OPTIONS: Record<Lang, { value: string; label: string }[]> = {
+  vi: [
+    { value: FORCE_REF, label: "🔒 Đồng bộ tuyệt đối với ảnh đã tải (khuyên dùng)" },
+    { value: "glowup", label: "Giữ nhận diện, làm đẹp tự nhiên" },
+    { value: "exact", label: "Giữ nguyên 100% như ảnh" },
+    { value: "businessman", label: "Doanh nhân lịch lãm" },
+    { value: "homecook", label: "Nội trợ / đầu bếp thân thiện" },
+    { value: "athletic", label: "Năng động, khỏe khoắn" },
+    { value: CUSTOM, label: "Khác (tự nhập)" },
+  ],
+  en: [
+    { value: FORCE_REF, label: "🔒 Lock to uploaded photo (recommended)" },
+    { value: "glowup", label: "Keep identity, natural glow-up" },
+    { value: "exact", label: "Keep exactly as the photo" },
+    { value: "businessman", label: "Polished businessman" },
+    { value: "homecook", label: "Friendly home cook" },
+    { value: "athletic", label: "Energetic, fit & healthy" },
+    { value: CUSTOM, label: "Other (type your own)" },
+  ],
+};
+const CHAR_APPR_PROMPT: Record<string, string> = {
+  glowup: "natural, friendly and camera-ready; keep the real identity from the reference photo",
+  exact: "reproduce the person exactly as in the reference photo, no restyling",
+  businessman: "polished, well-groomed, smart-casual businessman look",
+  homecook: "warm, friendly home cook / homemaker look",
+  athletic: "energetic, fit and healthy look",
+};
+
+const PROD_DESC_OPTIONS: Record<Lang, { value: string; label: string }[]> = {
+  vi: [
+    { value: FORCE_REF, label: "🔒 Đồng bộ tuyệt đối với ảnh sản phẩm (khuyên dùng)" },
+    { value: "premium", label: "Cao cấp, bóng bẩy" },
+    { value: "natural", label: "Mộc mạc, tự nhiên" },
+    { value: CUSTOM, label: "Khác (tự nhập)" },
+  ],
+  en: [
+    { value: FORCE_REF, label: "🔒 Lock to uploaded product photo (recommended)" },
+    { value: "premium", label: "Premium, glossy" },
+    { value: "natural", label: "Natural, rustic" },
+    { value: CUSTOM, label: "Other (type your own)" },
+  ],
+};
+const PROD_DESC_PROMPT: Record<string, string> = {
+  premium: "premium, glossy, high-end product presentation",
+  natural: "natural, rustic, authentic product presentation",
+};
+
+const BG_DESC_OPTIONS: Record<Lang, { value: string; label: string }[]> = {
+  vi: [
+    { value: FORCE_REF, label: "🔒 Đồng bộ tuyệt đối với ảnh bối cảnh (khuyên dùng)" },
+    { value: "bright", label: "Sáng sủa, hiện đại" },
+    { value: "cozy", label: "Ấm cúng, gần gũi" },
+    { value: CUSTOM, label: "Khác (tự nhập)" },
+  ],
+  en: [
+    { value: FORCE_REF, label: "🔒 Lock to uploaded location photo (recommended)" },
+    { value: "bright", label: "Bright, modern" },
+    { value: "cozy", label: "Cozy, homely" },
+    { value: CUSTOM, label: "Other (type your own)" },
+  ],
+};
+const BG_DESC_PROMPT: Record<string, string> = {
+  bright: "bright, clean, modern interior",
+  cozy: "cozy, warm, homely interior",
+};
+
+// Resolve a description dropdown selection into the text fed to the AI.
+function resolveDesc(
+  sel: string,
+  custom: string,
+  map: Record<string, string>,
+  forceText: string
+): string {
+  if (sel === FORCE_REF) return forceText;
+  if (sel === CUSTOM) return custom.trim();
+  return sel ? map[sel] ?? "" : "";
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface CharacterEntry {
@@ -701,12 +796,14 @@ export function GenerateClient() {
   const [charName, setCharName] = useState("");
   const [charRole, setCharRole] = useState("");
   const [charAppearance, setCharAppearance] = useState("");
+  const [charApprSel, setCharApprSel] = useState("");
   const [charImages, setCharImages] = useState<UploadedImage[]>([]);
 
   // Step 3: Products (main) + named ingredients (auxiliary)
   const [products, setProducts] = useState<ProductEntry[]>([]);
   const [prodName, setProdName] = useState("");
   const [prodDesc, setProdDesc] = useState("");
+  const [prodDescSel, setProdDescSel] = useState("");
   const [prodImages, setProdImages] = useState<UploadedImage[]>([]);
   // Auxiliary/ingredient images — each named, referenced by name in prompts.
   const [ingredients, setIngredients] = useState<ProductEntry[]>([]);
@@ -718,7 +815,13 @@ export function GenerateClient() {
   const [backgrounds, setBackgrounds] = useState<BackgroundEntry[]>([]);
   const [bgName, setBgName] = useState("");
   const [bgDesc, setBgDesc] = useState("");
+  const [bgDescSel, setBgDescSel] = useState("");
   const [bgImages, setBgImages] = useState<UploadedImage[]>([]);
+
+  // Resolved description text (dropdown selection or custom free-text).
+  const effectiveCharAppearance = resolveDesc(charApprSel, charAppearance, CHAR_APPR_PROMPT, FORCE_TEXT.character);
+  const effectiveProdDesc = resolveDesc(prodDescSel, prodDesc, PROD_DESC_PROMPT, FORCE_TEXT.product);
+  const effectiveBgDesc = resolveDesc(bgDescSel, bgDesc, BG_DESC_PROMPT, FORCE_TEXT.background);
 
   // Hydrate approved images handed off from the Image Studio (/studio).
   useEffect(() => {
@@ -776,11 +879,12 @@ export function GenerateClient() {
     if (!charName.trim()) return;
     setCharacters((prev) => [
       ...prev,
-      { name: charName, role: charRole, appearance: charAppearance, images: charImages },
+      { name: charName, role: charRole, appearance: effectiveCharAppearance, images: charImages },
     ]);
     setCharName("");
     setCharRole("");
     setCharAppearance("");
+    setCharApprSel("");
     setCharImages([]);
   };
 
@@ -788,10 +892,11 @@ export function GenerateClient() {
     if (!prodName.trim()) return;
     setProducts((prev) => [
       ...prev,
-      { name: prodName, description: prodDesc, images: prodImages },
+      { name: prodName, description: effectiveProdDesc, images: prodImages },
     ]);
     setProdName("");
     setProdDesc("");
+    setProdDescSel("");
     setProdImages([]);
   };
 
@@ -810,10 +915,11 @@ export function GenerateClient() {
     if (!bgName.trim()) return;
     setBackgrounds((prev) => [
       ...prev,
-      { name: bgName, description: bgDesc, images: bgImages },
+      { name: bgName, description: effectiveBgDesc, images: bgImages },
     ]);
     setBgName("");
     setBgDesc("");
+    setBgDescSel("");
     setBgImages([]);
   };
 
@@ -831,19 +937,19 @@ export function GenerateClient() {
     const effectiveCharacters = [
       ...characters,
       ...(charImages.length > 0
-        ? [{ name: charName.trim() || "Main character", role: charRole, appearance: charAppearance, images: charImages }]
+        ? [{ name: charName.trim() || "Main character", role: charRole, appearance: effectiveCharAppearance, images: charImages }]
         : []),
     ];
     const effectiveProducts = [
       ...products,
       ...(prodImages.length > 0
-        ? [{ name: prodName.trim() || "Product", description: prodDesc, images: prodImages }]
+        ? [{ name: prodName.trim() || "Product", description: effectiveProdDesc, images: prodImages }]
         : []),
     ];
     const effectiveBackgrounds = [
       ...backgrounds,
       ...(bgImages.length > 0
-        ? [{ name: bgName.trim() || "Setting", description: bgDesc, images: bgImages }]
+        ? [{ name: bgName.trim() || "Setting", description: effectiveBgDesc, images: bgImages }]
         : []),
     ];
 
@@ -1729,7 +1835,20 @@ export function GenerateClient() {
                   <Input value={charName} onChange={(e) => setCharName(e.target.value)} placeholder={L("charName")} />
                   <Input value={charRole} onChange={(e) => setCharRole(e.target.value)} placeholder={L("charRole")} />
                 </div>
-                <Input value={charAppearance} onChange={(e) => setCharAppearance(e.target.value)} placeholder={L("charAppearance")} />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {lang === "vi" ? "Mô tả ngoại hình (chọn nhanh)" : "Appearance (quick pick)"}
+                  </label>
+                  <Select
+                    value={charApprSel}
+                    onChange={(e) => setCharApprSel(e.target.value)}
+                    options={CHAR_APPR_OPTIONS[lang]}
+                    placeholder={lang === "vi" ? "Chọn mô tả..." : "Choose..."}
+                  />
+                  {charApprSel === CUSTOM && (
+                    <Input value={charAppearance} onChange={(e) => setCharAppearance(e.target.value)} placeholder={L("charAppearance")} />
+                  )}
+                </div>
                 <ImageUploader
                   images={charImages}
                   onChange={setCharImages}
@@ -1801,7 +1920,20 @@ export function GenerateClient() {
 
               <div className="space-y-3 rounded-lg border border-dashed p-4">
                 <Input value={prodName} onChange={(e) => setProdName(e.target.value)} placeholder={L("prodName")} />
-                <Input value={prodDesc} onChange={(e) => setProdDesc(e.target.value)} placeholder={L("prodDesc")} />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {lang === "vi" ? "Mô tả sản phẩm (chọn nhanh)" : "Product description (quick pick)"}
+                  </label>
+                  <Select
+                    value={prodDescSel}
+                    onChange={(e) => setProdDescSel(e.target.value)}
+                    options={PROD_DESC_OPTIONS[lang]}
+                    placeholder={lang === "vi" ? "Chọn mô tả..." : "Choose..."}
+                  />
+                  {prodDescSel === CUSTOM && (
+                    <Input value={prodDesc} onChange={(e) => setProdDesc(e.target.value)} placeholder={L("prodDesc")} />
+                  )}
+                </div>
                 <ImageUploader
                   images={prodImages}
                   onChange={setProdImages}
@@ -1902,7 +2034,20 @@ export function GenerateClient() {
 
               <div className="space-y-3 rounded-lg border border-dashed p-4">
                 <Input value={bgName} onChange={(e) => setBgName(e.target.value)} placeholder={L("bgName")} />
-                <Input value={bgDesc} onChange={(e) => setBgDesc(e.target.value)} placeholder={L("bgDesc")} />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {lang === "vi" ? "Mô tả bối cảnh (chọn nhanh)" : "Location description (quick pick)"}
+                  </label>
+                  <Select
+                    value={bgDescSel}
+                    onChange={(e) => setBgDescSel(e.target.value)}
+                    options={BG_DESC_OPTIONS[lang]}
+                    placeholder={lang === "vi" ? "Chọn mô tả..." : "Choose..."}
+                  />
+                  {bgDescSel === CUSTOM && (
+                    <Input value={bgDesc} onChange={(e) => setBgDesc(e.target.value)} placeholder={L("bgDesc")} />
+                  )}
+                </div>
                 <ImageUploader
                   images={bgImages}
                   onChange={setBgImages}

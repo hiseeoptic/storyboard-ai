@@ -35,6 +35,7 @@ import {
   generateStoryboardPlan,
   generateBoardImage,
   type StoryboardResult,
+  type StoryboardAnalysis,
 } from "@/actions";
 import { CharacterStudio } from "./character-studio";
 import type {
@@ -283,8 +284,8 @@ const t = {
   adminClose: { vi: "Đóng", en: "Close" },
   adminProviderLabel: { vi: "Nhà cung cấp AI", en: "AI Provider" },
   adminProviderHint: {
-    vi: "Lựa chọn được lưu lại cho lần sau. OpenAI dùng GPT-4o + DALL-E 3, Gemini dùng Gemini 2.5 Flash.",
-    en: "Your choice is saved for next time. OpenAI uses GPT-4o + DALL-E 3, Gemini uses Gemini 2.5 Flash.",
+    vi: "Lựa chọn được lưu lại cho lần sau. OpenAI dùng GPT-4o + DALL-E 3, Gemini dùng Nano Banana / Nano Banana Pro (giữ khuôn mặt).",
+    en: "Your choice is saved for next time. OpenAI uses GPT-4o + DALL-E 3, Gemini uses Nano Banana / Nano Banana Pro (face lock).",
   },
   adminCurrentProvider: { vi: "Đang dùng", en: "Currently using" },
 } as const;
@@ -557,6 +558,12 @@ export function GenerateClient() {
   const [progressMessage, setProgressMessage] = useState("");
   const [result, setResult] = useState<StoryboardResult | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Kept after a build so any board can be reviewed and re-rendered on demand
+  // (the quality-review/redo gate) without rebuilding the whole storyboard.
+  const [genInput, setGenInput] = useState<StoryboardGenerationInput | null>(null);
+  const [genAnalysis, setGenAnalysis] = useState<StoryboardAnalysis | null>(null);
+  const [regenTarget, setRegenTarget] = useState<number | "master" | null>(null);
 
   // Set when reference images were handed off from the Image Studio.
   const [fromStudio, setFromStudio] = useState(false);
@@ -871,6 +878,10 @@ export function GenerateClient() {
         return;
       }
 
+      // Keep the inputs so individual boards can be reviewed & re-rendered.
+      setGenInput(input);
+      setGenAnalysis(plan.data.analysis);
+
       const breakdown = plan.data.breakdown;
       const segCount = breakdown.segments.length;
       const total = segCount + 1; // + master board
@@ -931,6 +942,40 @@ export function GenerateClient() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
       setPhase("input");
+    }
+  };
+
+  // ─── Review & redo: re-render a single board on demand ───────────
+  const regenerateBoard = async (
+    target: number | "master"
+  ) => {
+    if (!genInput || !genAnalysis || !result || regenTarget !== null) return;
+    setRegenTarget(target);
+    try {
+      const r = await generateBoardImage({
+        input: genInput,
+        breakdown: result.breakdown,
+        analysis: genAnalysis,
+        kind: target === "master" ? "master" : "segment",
+        segmentIndex: target === "master" ? undefined : target,
+        provider,
+      });
+      if (r.success) {
+        if (target === "master") {
+          setResult({ ...result, storyboardPosterUrl: r.data.url });
+        } else {
+          const segments = result.breakdown.segments.slice();
+          const seg = segments[target];
+          if (seg) segments[target] = { ...seg, first_frame_url: r.data.url };
+          setResult({ ...result, breakdown: { ...result.breakdown, segments } });
+        }
+      } else {
+        setError(r.error);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Regenerate failed");
+    } finally {
+      setRegenTarget(null);
     }
   };
 
@@ -1167,10 +1212,16 @@ export function GenerateClient() {
                   <ImageIcon className="h-5 w-5" />
                   {lang === "vi" ? "Bảng Storyboard Tổng (Sheet + Action + Lời thoại)" : "Master Board (Sheet + Action + Dialogue)"}
                 </CardTitle>
-                <Button variant="outline" size="sm" onClick={() => downloadImage(result.storyboardPosterUrl!, `storyboard-${result.breakdown.title.replace(/[^a-zA-Z0-9]/g, "_")}.png`)} className="gap-1.5">
-                  <Download className="h-3.5 w-3.5" />
-                  {lang === "vi" ? "Tải ảnh" : "Download"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" disabled={regenTarget !== null} onClick={() => regenerateBoard("master")} className="gap-1.5">
+                    {regenTarget === "master" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+                    {lang === "vi" ? "Tạo lại" : "Redo"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => downloadImage(result.storyboardPosterUrl!, `storyboard-${result.breakdown.title.replace(/[^a-zA-Z0-9]/g, "_")}.png`)} className="gap-1.5">
+                    <Download className="h-3.5 w-3.5" />
+                    {lang === "vi" ? "Tải ảnh" : "Download"}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -1204,7 +1255,15 @@ export function GenerateClient() {
             <Film className="h-5 w-5" />
             <h2 className="text-lg font-bold">{L("segmentsTitle")}</h2>
           </div>
-          <p className="mb-4 text-sm text-muted-foreground">{L("segmentsHint")}</p>
+          <p className="mb-2 text-sm text-muted-foreground">{L("segmentsHint")}</p>
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs text-primary">
+            <RotateCw className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              {lang === "vi"
+                ? "Duyệt chất lượng từng ảnh trước khi xuất. Board nào chưa nét/chưa giống nhân vật, bấm nút Tạo lại ↻ trên thẻ đó để vẽ lại riêng board ấy — không phải dựng lại toàn bộ. Ưng hết thì mới tải ZIP."
+                : "Review each board's quality before exporting. If a board is soft or off-model, hit the Redo ↻ button on that card to re-render just that one — no need to rebuild everything. Download the ZIP once you're happy."}
+            </span>
+          </div>
 
           <div className="grid gap-4">
             {result.breakdown.segments.map((seg) => (
@@ -1268,6 +1327,20 @@ export function GenerateClient() {
                     >
                       {copiedSeg === seg.segment_number ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                       {copiedSeg === seg.segment_number ? (lang === "vi" ? "Đã copy" : "Copied") : L("copyPrompt")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={regenTarget !== null}
+                      title={lang === "vi" ? "Chưa ưng? Vẽ lại board này" : "Not happy? Re-render this board"}
+                      onClick={() => regenerateBoard(result.breakdown.segments.indexOf(seg))}
+                    >
+                      {regenTarget === result.breakdown.segments.indexOf(seg) ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RotateCw className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                     {seg.first_frame_url && (
                       <Button
@@ -1371,7 +1444,7 @@ export function GenerateClient() {
                 }`}
               >
                 Gemini
-                <span className="mt-0.5 block text-[10px] font-normal opacity-70">Gemini 2.5 Flash</span>
+                <span className="mt-0.5 block text-[10px] font-normal opacity-70">Nano Banana Pro</span>
               </button>
             </div>
 

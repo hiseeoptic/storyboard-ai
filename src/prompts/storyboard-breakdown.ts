@@ -231,7 +231,7 @@ function renderDirective(style: string, preserveRealFace: boolean): string {
   }`;
 }
 
-export type RefRole = "face" | "product" | "setting" | "character_sheet";
+export type RefRole = "face" | "product" | "setting" | "character_sheet" | "anchor";
 
 export interface RefDescriptor {
   role: RefRole;
@@ -254,11 +254,13 @@ export function buildReferenceInstructions(refs: RefDescriptor[]): string {
       case "character_sheet":
         return `• THE CHARACTER — the attached CHARACTER REFERENCE SHEET (turnaround + expressions)${d} defines the main character's exact face, hair, body and costume. Reproduce the SAME individual identically in every shot — same face, same wardrobe, same proportions — rendered as a slightly younger, more attractive version of himself. Do NOT invent a different person.`;
       case "face":
-        return `• THE PERSON — use the exact man shown in the attached portrait photo${d}. Keep his real face, eyeglasses, hairstyle and skin tone CLEARLY recognizable and identical in every shot; render him as a tasteful, slightly younger and more handsome version of himself (light natural retouch, same identity). He is the main character. Do NOT invent a different face.`;
+        return `• THE PERSON — use the exact man shown in the attached portrait photo${d}. Keep his real face, hairstyle, facial hair and skin tone CLEARLY recognizable and identical in every shot; render him as a tasteful, slightly younger and more handsome version of himself (light natural retouch, same identity). Match his eyewear EXACTLY to the photo — if he is NOT wearing glasses in the photo, do NOT add glasses; if he IS, keep the same glasses — and keep this consistent across every shot. He is the main character. Do NOT invent a different face.`;
       case "product":
         return `• THE PRODUCT — feature the EXACT product shown in the attached product photo${d}. Keep its EXACT shape, silhouette, colour, material, proportions, handle/parts and branding identical in every single shot. Do NOT redesign, recolour, distort, resize, age, damage or swap it for a different object.`;
       case "setting":
         return `• THE LOCATION — keep every scene in the same location shown in the attached interior photo${d}. Match its layout, colours, furniture and key props; keep it consistent across all shots.`;
+      case "anchor":
+        return `• CONTINUITY ANCHOR — the attached image is a board from an EARLIER shot of this SAME video. It is the single source of truth for continuity: reproduce the SAME exact person (identical face, hairstyle, eyewear/no-eyewear, facial hair, build) wearing the SAME exact outfit (same apron, same shirt, same colours), in the SAME exact kitchen/location (identical cabinet style & colour, wall, countertop, window, appliances and layout), under the SAME lighting and the SAME art style. ONLY the camera framing and the action change for this new shot. Do NOT redesign the person, the wardrobe or the room, and do NOT add or remove accessories.`;
       default:
         return `• Reference — keep it consistent.`;
     }

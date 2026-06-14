@@ -555,6 +555,38 @@ interface BackgroundEntry {
 
 type Phase = "input" | "generating" | "result";
 
+// Downscale a generated board (data URI) to a small JPEG so it can be sent
+// back as a lightweight CONTINUITY ANCHOR reference without bloating the
+// server-action payload. ~768px is plenty to convey face + wardrobe + kitchen.
+async function downscaleToBase64(
+  dataUri: string,
+  maxDim = 768,
+  quality = 0.82
+): Promise<{ base64: string; mimeType: string } | null> {
+  try {
+    const img = document.createElement("img");
+    img.src = dataUri;
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("anchor load failed"));
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+    const w = Math.round(img.naturalWidth * scale);
+    const h = Math.round(img.naturalHeight * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, w, h);
+    const out = canvas.toDataURL("image/jpeg", quality);
+    const base64 = out.includes(",") ? out.split(",")[1]! : out;
+    return { base64, mimeType: "image/jpeg" };
+  } catch {
+    return null;
+  }
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function GenerateClient() {
@@ -571,6 +603,7 @@ export function GenerateClient() {
   // (the quality-review/redo gate) without rebuilding the whole storyboard.
   const [genInput, setGenInput] = useState<StoryboardGenerationInput | null>(null);
   const [genAnalysis, setGenAnalysis] = useState<StoryboardAnalysis | null>(null);
+  const [genAnchor, setGenAnchor] = useState<{ base64: string; mimeType?: string } | null>(null);
   const [regenTarget, setRegenTarget] = useState<number | "master" | null>(null);
 
   // Set when reference images were handed off from the Image Studio.
@@ -789,6 +822,7 @@ export function GenerateClient() {
   const handleGenerate = async () => {
     setPhase("generating");
     setError(null);
+    setGenAnchor(null);
     setProgressPercent(5);
     setProgressMessage(L("preparing"));
 
@@ -905,6 +939,9 @@ export function GenerateClient() {
 
       // Phase 2: ONE board per server call — each request/response stays well
       // under Vercel's 4.5MB + timeout limits, so boards never get truncated.
+      // The first successful board becomes the CONTINUITY ANCHOR fed into every
+      // later board so the character, wardrobe and kitchen stop drifting.
+      let anchor: { base64: string; mimeType?: string } | undefined;
       for (let i = 0; i < segCount; i++) {
         setProgressMessage(lang === "vi" ? `Đang vẽ cảnh ${i + 1}/${segCount}` : `Drawing board ${i + 1}/${segCount}`);
         try {
@@ -915,9 +952,17 @@ export function GenerateClient() {
             kind: "segment",
             segmentIndex: i,
             provider,
+            anchorImage: anchor,
           });
           const seg = breakdown.segments[i];
           if (seg) seg.first_frame_url = r.success ? r.data.url : null;
+          if (r.success && !anchor) {
+            const a = await downscaleToBase64(r.data.url);
+            if (a) {
+              anchor = a;
+              setGenAnchor(a);
+            }
+          }
         } catch {
           const seg = breakdown.segments[i];
           if (seg) seg.first_frame_url = null;
@@ -935,6 +980,7 @@ export function GenerateClient() {
           analysis: plan.data.analysis,
           kind: "master",
           provider,
+          anchorImage: anchor,
         });
         if (master.success) posterUrl = master.data.url;
       } catch {
@@ -964,6 +1010,9 @@ export function GenerateClient() {
     if (!genInput || !genAnalysis || !result || regenTarget !== null) return;
     setRegenTarget(target);
     try {
+      // Re-rendering board #0 itself? Don't anchor it to its own old version.
+      const anchorImage =
+        genAnchor && target !== 0 ? genAnchor : undefined;
       const r = await generateBoardImage({
         input: genInput,
         breakdown: result.breakdown,
@@ -971,6 +1020,7 @@ export function GenerateClient() {
         kind: target === "master" ? "master" : "segment",
         segmentIndex: target === "master" ? undefined : target,
         provider,
+        anchorImage,
       });
       if (r.success) {
         if (target === "master") {

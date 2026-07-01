@@ -143,7 +143,9 @@ export type VideoGoal =
   | "brand_story"
   | "social_short"
   | "testimonial"
-  | "promo_sale";
+  | "promo_sale"
+  // ─── Knowledge/topic content (numerology, health, self-development) ──
+  | "numerology";
 
 export interface CharacterDescription {
   name: string;
@@ -237,6 +239,9 @@ export interface VideoSegment {
   /** Image-to-video motion prompt (30-80 words) for Veo/Seedance. */
   motion_prompt: string;
   dialogue: string | null;
+  /** Exact character_locks name of who speaks this segment's line (one speaker
+   * per clip). Empty/undefined = voiceover or no on-screen speaker. */
+  speaker?: string | null;
   /** How this segment visually connects to the previous one (seamless join). */
   continuity_note: string;
   /** Filled by the image pipeline — the generated start frame. */

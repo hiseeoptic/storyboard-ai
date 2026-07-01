@@ -46,6 +46,8 @@ const GOAL_GUIDANCE: Record<VideoGoal, string> = {
     "Promo / sale push. Bold offer hook (discount/deadline), show the value, create urgency (limited time/stock), end with a strong shop-now CTA.",
   numerology:
     "Numerology / self-development insight short. ONE relatable character embodying the number(s). 5-beat emotional arc: Hook (call out the viewer) → Pain (the misunderstood struggle) → Insight (reframe: 'not X, but Y') → Payoff (the mission/gift) → CTA (loop-friendly, comment prompt). Warm, cinematic, inspiring — never a hard product sell.",
+  health:
+    "Health / wellness education short. ONE relatable character living the health problem. 5-beat arc: Hook (name the symptom/fear) → Problem (how it disrupts daily life) → Insight (the real root cause, explained simply) → Solution (the habit/remedy/product that helps) → CTA (save/follow/try). Trustworthy, empathetic, clear — evidence-based, not alarmist.",
 };
 
 // Rich framework for topic-driven numerology / self-development shorts, modelled
@@ -64,6 +66,20 @@ NUMEROLOGY SCRIPT FRAMEWORK (follow this EXACTLY — it is the proven winning sh
   5) CTA — a one-line takeaway + a loop-friendly comment prompt (e.g. "thả số chủ đạo của bạn ở comment"). Open, walk-away framing.
 - DIALOGUE: warm, second-person Vietnamese, ~5-12 words per segment, ~110-120 words total across the video. Emotional, inspiring, conversational — NOT a product ad.
 - Also fill "marketing_structure" as: hook = beat 1 idea, problem = beat 2 pain, solution = beat 3 insight, cta = beat 5 line. Put a ready-to-post social caption + 4-6 hashtags at the END of "synopsis".`;
+
+// Health / wellness education framework (same 5-beat shape, health-flavoured).
+const HEALTH_FRAMEWORK = `
+HEALTH / WELLNESS SCRIPT FRAMEWORK (follow this EXACTLY):
+- SUBJECT: a specific health topic (e.g. "gan nhiễm mỡ", "mất ngủ"). Use the topic content provided as the source of truth; be accurate and empathetic, NOT alarmist, and avoid over-claiming cures.
+- CHARACTER: ONE relatable persona living this problem (name, age, everyday setting), kept identical across all segments so the clips chain seamlessly. Warm, trustworthy, real-life tone.
+- THE 5-BEAT ARC (map onto the segments in order; scale to the requested segment count):
+  1) HOOK — name the symptom/worry directly to the viewer ("Bạn hay [triệu chứng]?"). Close-up.
+  2) PROBLEM — show how it quietly disrupts daily life (a relatable everyday moment).
+  3) INSIGHT — explain the REAL root cause simply and correctly (one clear idea).
+  4) SOLUTION — the habit / remedy / product that helps, shown in use (if a product is provided, feature it accurately).
+  5) CTA — save/follow/try line, gentle and caring.
+- Put ONE clear takeaway/core message in "synopsis". Fill "marketing_structure" (hook/problem/solution/cta) from beats 1/2/3-4/5. Add a ready-to-post caption + 4-6 hashtags at the END of "synopsis".
+- DIALOGUE: warm, second-person Vietnamese, ~5-12 words per segment. Clear and caring — not a hard sell.`;
 
 // ─── Step 1: Segment Breakdown + Character Lock ─────────────────────────────
 
@@ -155,9 +171,16 @@ export function buildStoryboardUserPrompt(
   const beatsPerSegment = Math.min(5, Math.max(3, input.beats_per_segment ?? 3));
   const goal = input.video_goal ?? "marketing_general";
   const goalGuidance = GOAL_GUIDANCE[goal];
-  // Topic-driven numerology/self-development content follows a dedicated,
-  // proven 5-beat framework instead of the product/story brief.
-  const numerologyBlock = goal === "numerology" ? `\n${NUMEROLOGY_FRAMEWORK}` : "";
+  // Topic-driven numerology / health content follows a dedicated, proven
+  // 5-beat framework instead of the product/story brief. Triggered by the goal
+  // OR the genre (whichever the user set).
+  const isNumerology = goal === "numerology" || input.genre === "numerology";
+  const isHealth = goal === "health" || input.genre === "health";
+  const numerologyBlock = isNumerology
+    ? `\n${NUMEROLOGY_FRAMEWORK}`
+    : isHealth
+      ? `\n${HEALTH_FRAMEWORK}`
+      : "";
 
   const dialogueLanguage = input.dialogue_language ?? "Vietnamese";
   const dialogueBlock =

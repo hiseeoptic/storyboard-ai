@@ -81,6 +81,9 @@ export type Genre =
   | "brand_film"
   | "promo"
   | "unboxing"
+  // ─── Knowledge/topic content (from the topic library) ────────────────
+  | "numerology"
+  | "health"
   | "other";
 
 // ─── AI Engine ──────────────────────────────────────────────────────────────
@@ -145,7 +148,8 @@ export type VideoGoal =
   | "testimonial"
   | "promo_sale"
   // ─── Knowledge/topic content (numerology, health, self-development) ──
-  | "numerology";
+  | "numerology"
+  | "health";
 
 export interface CharacterDescription {
   name: string;

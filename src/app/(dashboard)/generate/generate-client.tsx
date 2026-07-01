@@ -355,6 +355,8 @@ const GENRE_OPTIONS: Record<Lang, { value: string; label: string }[]> = {
     { value: "thriller", label: "Giật gân" },
     { value: "animation", label: "Hoạt hình" },
     { value: "documentary", label: "Tài liệu" },
+    { value: "numerology", label: "Thần số học" },
+    { value: "health", label: "Sức khoẻ" },
   ],
   en: [
     { value: "advertising", label: "Advertising / TVC" },
@@ -371,6 +373,8 @@ const GENRE_OPTIONS: Record<Lang, { value: string; label: string }[]> = {
     { value: "thriller", label: "Thriller" },
     { value: "animation", label: "Animation" },
     { value: "documentary", label: "Documentary" },
+    { value: "numerology", label: "Numerology" },
+    { value: "health", label: "Health" },
   ],
 };
 
@@ -382,6 +386,10 @@ const AD_GENRES = new Set([
   "promo",
   "unboxing",
 ]);
+
+// Topic-library genres (numerology / health) → drive the 5-beat framework and
+// hide the product/story brief (their content comes from the topic library).
+const TOPIC_GENRES = new Set(["numerology", "health"]);
 
 const CUSTOM = "__custom__";
 
@@ -2225,7 +2233,13 @@ export function GenerateClient() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{L("genre")}</label>
-                  <Select value={genre} onChange={(e) => setGenre(e.target.value)} options={GENRE_OPTIONS[lang]} />
+                  <Select value={genre} onChange={(e) => {
+                    const g = e.target.value;
+                    setGenre(g);
+                    // Topic genres drive the matching 5-beat framework goal.
+                    if (g === "numerology") setVideoGoal("numerology");
+                    else if (g === "health") setVideoGoal("health");
+                  }} options={GENRE_OPTIONS[lang]} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{L("setting")}</label>
@@ -2253,8 +2267,22 @@ export function GenerateClient() {
                 )}
               </div>
 
-              {/* Brief — product (ad genres) vs story (narrative genres) */}
-              {isAdGenre ? (
+              {/* Brief — topic (numerology/health) vs product (ad) vs story */}
+              {TOPIC_GENRES.has(genre) ? (
+                <div className="space-y-2 rounded-lg border border-dashed border-primary/40 bg-primary/[0.03] p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                    <BookOpen className="h-4 w-4" />
+                    {genre === "numerology"
+                      ? (lang === "vi" ? "Nội dung Thần số học" : "Numerology content")
+                      : (lang === "vi" ? "Nội dung Sức khoẻ" : "Health content")}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {lang === "vi"
+                      ? 'Loại này lấy nội dung từ "Kho chủ đề" ở Bước 1 (chọn chủ đề → nội dung đổ vào ô ý tưởng). AI sẽ viết theo khung 5 nhịp Hook → Giải mã → CTA.'
+                      : 'This type pulls content from the Topic Library in Step 1. The AI writes it in the 5-beat Hook → Insight → CTA framework.'}
+                  </p>
+                </div>
+              ) : isAdGenre ? (
                 <div className="space-y-3 rounded-lg border border-dashed p-4">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 shrink-0 text-primary" />

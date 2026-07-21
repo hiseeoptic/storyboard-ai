@@ -1380,9 +1380,12 @@ export async function generateStoryboardPlan(
     // failure warns and falls back to the legacy direct storyboard path.
     let contextBoundInput = stage2Input;
     try {
+      // Stage 1.5 is best-effort (a clean fallback exists), so give it just ONE
+      // attempt: a 2nd 45s retry here was eating the shared deadline and
+      // starving the storyboard stage into the "safe budget" timeout.
       const resolvedContext = await analyzeVideoContext(stage2Input, provider, {
         deadlineMs: generationDeadlineMs,
-        maxAttempts: 2,
+        maxAttempts: 1,
       });
       contextBoundInput = { ...stage2Input, resolved_context: resolvedContext };
     } catch (e) {

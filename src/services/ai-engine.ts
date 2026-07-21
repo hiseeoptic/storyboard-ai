@@ -38,6 +38,10 @@ const NUMBER_SCHEMA = { type: "NUMBER" };
 const BOOLEAN_SCHEMA = { type: "BOOLEAN" };
 const STRING_ARRAY_SCHEMA = { type: "ARRAY", items: STRING_SCHEMA };
 
+function hasUploadedCharacterReferences(input: StoryboardGenerationInput): boolean {
+  return (input.character_images ?? []).some((entry) => (entry.images?.length ?? 0) > 0);
+}
+
 interface GenerationTimingOptions {
   /** Absolute wall-clock deadline shared by every AI stage in one request. */
   deadlineMs?: number;
@@ -131,10 +135,9 @@ const SEGMENT_ITEM_SCHEMA: Record<string, unknown> = {
       ],
     },
     continuity_note: STRING_SCHEMA,
-    // MOTIVATED WARDROBE CHANGE: when the story physically changes a
-    // character's look (shower → home clothes, getting dressed, rain), the
-    // model declares the CURRENT look here for this and every later segment,
-    // overriding the base character_lock costume/hair.
+    // MOTIVATED WARDROBE CHANGE: declare the changed/current look only on the
+    // first segment where a shower, rain/water condition or scripted clothing
+    // change actually occurs. Later segments inherit it automatically.
     wardrobe_state: {
       type: "ARRAY",
       items: {
@@ -722,7 +725,7 @@ export async function generateStoryboardBreakdown(
         // Claude Opus 4.8 writes the best scripts. It returns text; the JSON is
         // extracted by sanitizeJsonResponse below (no responseMimeType on Claude).
         rawContent = await claudeGenerateText({
-          systemPrompt: buildStoryboardSystemPrompt(),
+          systemPrompt: buildStoryboardSystemPrompt(hasUploadedCharacterReferences(input)),
           userPrompt:
             buildStoryboardUserPrompt(input) +
             "\n\nReturn ONLY the JSON object described above — no markdown, no code fences, no prose before or after.",
@@ -731,7 +734,7 @@ export async function generateStoryboardBreakdown(
         });
       } else if (provider === "gemini") {
         rawContent = await geminiGenerateText({
-          systemPrompt: buildStoryboardSystemPrompt(),
+          systemPrompt: buildStoryboardSystemPrompt(hasUploadedCharacterReferences(input)),
           userPrompt: buildStoryboardUserPrompt(input),
           jsonMode: true,
           responseSchema: STORYBOARD_RESPONSE_SCHEMA,
@@ -781,7 +784,10 @@ export async function generateStoryboardBreakdown(
           {
             model: "gpt-4o",
             messages: [
-              { role: "system", content: buildStoryboardSystemPrompt() },
+              {
+                role: "system",
+                content: buildStoryboardSystemPrompt(hasUploadedCharacterReferences(input)),
+              },
               { role: "user", content: buildStoryboardUserPrompt(input) },
             ],
             temperature: 0.7,
@@ -876,12 +882,10 @@ export async function generateStoryboardBreakdown(
           const line = typeof seg.dialogue === "string" ? seg.dialogue.trim() : "";
           if (!line) seg.dialogue = seg.title;
         }
-        // Speaker (one per clip). Default to the main character when the model
-        // omits it but there is a spoken line, so multi-character prompts still
-        // name a speaker.
-        if (seg.speaker === undefined || seg.speaker === null) {
-          seg.speaker = parsed.character_locks?.[0]?.name ?? "";
-        }
+        // Do not invent a speaker when the model omits one. An empty speaker is
+        // an explicit voiceover/unspecified owner and is resolved only from
+        // exact dialogue data later; never default to the first character lock.
+        if (seg.speaker === undefined || seg.speaker === null) seg.speaker = "";
         if (!seg.continuity_note) {
           seg.continuity_note = i === 0 ? "opening shot" : "continues from previous segment";
         }
@@ -1051,7 +1055,7 @@ export async function rewriteStoryboardSegment(params: {
   if (!original) {
     throw new Error(`Segment index ${params.segmentIndex} not found`);
   }
-  const systemPrompt = buildStoryboardSystemPrompt();
+  const systemPrompt = buildStoryboardSystemPrompt(hasUploadedCharacterReferences(params.input));
   const userPrompt = buildSegmentRewriteUserPrompt({
     input: params.input,
     breakdown: params.breakdown,

@@ -475,7 +475,7 @@ export interface VideoSegment {
   beats: ShotBeat[]; // 3-5 beats within the 10s
   /** Prompt used to generate this segment's start (first) frame image. */
   first_frame_prompt: string;
-  /** Image-to-video motion prompt (30-80 words) for Veo/Seedance. */
+  /** Untimed ordered image-to-video action; dialogue_lines owns all timecodes. */
   motion_prompt: string;
   dialogue: string | null;
   /** Exact character_locks name of who speaks this segment's line (used for the
@@ -504,8 +504,8 @@ export interface VideoSegment {
   /** MOTIVATED WARDROBE CHANGE: when a story action physically changes a
    * character's look (shower → home clothes, getting dressed, soaked by rain),
    * this lists the character's CURRENT outfit/hair for THIS segment — it
-   * overrides the base character_lock costume in every prompt built for the
-   * segment. Declared on the first changed segment and every one after. */
+   * overrides the base character_lock costume from this point onward. Declare
+   * it once on the first changed segment; later segments inherit it. */
   wardrobe_state?: {
     character: string;
     outfit: string;

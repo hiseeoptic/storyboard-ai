@@ -722,6 +722,7 @@ PHYSICAL REALISM (every clip must look real, not "AI" — this is what eliminate
 STAGING & BLOCKING (a real director's coverage — this is what separates a watchable video from a flat, monotonous one):
 - 🧭 SPATIAL TOPOLOGY FIRST (mandatory before writing a first frame, beat, motion or camera for every multi-zone / threshold / boundary scene): create ONE compact "spatial_layout" and make every field consume it. (1) "zone_order" lists the physically connected zones in order; (2) "fixed_architecture" locks walls, door/window openings, thresholds, stairs, counters and perimeter barriers; (3) "character_placement" assigns EACH visible character an exact zone + named architectural/prop anchor + approximate distance + facing direction; (4) "walkable_path" declares the connected load-bearing route that must remain clear; (5) "camera_zone" gives the camera a real supported position and unobstructed line of sight. Do not describe the same geometry differently in first_frame_prompt, beats, motion_prompt or camera notes.
 - 🚪 CONNECTOR / BOUNDARY TRUTH: a doorway is an OPENING in a wall and the threshold is its walkable connector — a railing, wall, counter, furniture, planter or character can never cross or block it by accident. A railing/parapet/guard stays ONLY on the true exposed outer edge, never opposite/across a doorway, never in the middle of the usable floor, and never between two people who are looking or speaking across that doorway. Example only when the script actually contains an apartment balcony: interior room → open doorway/threshold → balcony floor → outer-perimeter railing → exterior/city beyond. This is a topology example, NOT a default location template.
+- 🔄 REVOLVING-DOOR KINEMATICS (only when the script actually names one): the start state places a crossing character BEFORE the entrance gap, never already through it. Establish one rotation direction and keep it. The character enters one wedge compartment, stays between the same two rigid radial glass wings, follows that compartment's curved arc, and exits only when its opening aligns with the destination floor. Never walk straight through a glass wing, cross the center shaft, change compartments, reverse the door or complete the crossing twice. Put this once in spatial_layout.mechanism_motion; other fields obey it without paraphrasing it.
 - 🚶 OCCUPANCY & ROUTE: every person has one start zone and one facing direction. If motion changes zones, name the connector and show the continuous crossing; otherwise the person stays in the declared zone. Nobody stands through a wall/threshold, beyond a railing, over a void, or on a non-load-bearing surface. The camera follows the same rules and cannot be inside a wall or beyond a safety barrier.
 - 🔒 TOPOLOGY FREEZE: fixed architecture and zone order remain unchanged for the whole clip and across chained clips in the same location. Doors may open/close only through a visible hinged/sliding action, but the wall opening and threshold never migrate. If an uploaded location photo exists, derive this topology from that real photo and do not redesign it.
 - 🎭 VARY THE STAGING BETWEEN CLIPS: consecutive segments must NOT repeat the same two people in the same pose in the same framing (five straight clips of a couple sitting on a sofa = dead video). Between clips, change at least ONE of: a character's position in the room (standing at the window, crossing to the shelf, kneeling by the cabinet), their posture (sitting → leaning forward → standing), the spatial relationship (side-by-side → facing → one behind the other), or the shot framing. Move the story PHYSICALLY through the locked space — always by walking on screen or between segments, never teleporting.
@@ -1037,12 +1038,13 @@ ${beatExample}
       "characters_in_scene": ["REQUIRED — array of EXACT character_locks names VISIBLE in this segment (use only names defined for THIS video). Only these people appear on screen; the speaker must be listed here; others in the list react silently."],
       "environment_ref": "string — the environment archetype id from the ENVIRONMENT ENGINE list that matches this segment's setting (e.g. 'misty_mountain_ridge_dawn'), or 'custom' if none fits. Consecutive segments in the same place reuse the same id.",
       "spatial_layout": {
-        "_note": "Keep EACH field to ONE short clause (≤ 18 words) — this is a compact geometry map, not prose. OMIT the whole spatial_layout object for a simple single-zone scene with no doorway/threshold/stair/counter/railing/edge.",
+        "_note": "Keep EACH field to ONE short clause (≤ 18 words) — this is a compact geometry map, not prose. OMIT the whole spatial_layout object for a simple single-zone scene with no doorway/threshold/stair/counter/railing/edge. mechanism_motion is optional and used only for moving architecture such as a revolving door.",
         "zone_order": "string — ordered connected zones; e.g. balcony scene: room -> doorway/threshold -> balcony floor -> outer railing -> exterior",
         "fixed_architecture": "string — immutable walls/openings/threshold/boundary; what may NEVER cross or block a connector",
         "character_placement": "string — each character: zone + anchor + approx distance + facing; nobody straddles architecture or stands beyond a boundary",
         "walkable_path": "string — continuous route; name the connector for any zone change; keep unobstructed",
-        "camera_zone": "string — one real camera zone + side/height + line of sight; never inside a wall or beyond a railing"
+        "camera_zone": "string — one real camera zone + side/height + line of sight; never inside a wall or beyond a railing",
+        "mechanism_motion": "optional string — revolving door only: one rotation direction + same occupied wedge + aligned physical exit"
       },
       "wardrobe_state": [
         { "character": "TEXT-ONLY character name", "outfit": "FULL current outfit description", "outfit_materials": "real fabric materials", "hair": "current hair state" }
@@ -1151,7 +1153,7 @@ REWRITE RULES:
 2. Rewrite "motion_prompt" (45-90 words) as ONE untimed chronological physical sequence. State who addresses whom and the listener's silent reaction, but put NO seconds/time ranges, quoted dialogue or camera schedule in motion_prompt. Speech may accompany an ordinary body transition when the line, breath and context make it natural; otherwise place the larger movement before/after the line. CAUSAL CHAIN: every object interaction visibly follows reach → contact/grip → continuous transfer → release; every fall/open/spill has a visible cause first; all used props already exist in first_frame_prompt; the whole clip stays in ONE location. Keep the physical load light and meaningful.
 3. Rewrite "beats" (EXACTLY ${beatsPerSegment} beats) as untimed progressive framings of the same continuous action. CAMERA DOES NOT ASSIGN SPEECH: it may hold the speaker, listener reaction or both; camera notes contain no dialogue timecodes, use one calm smooth move and never force the framed person to lip-sync.
 4. Update "first_frame_prompt" only as needed: keep the same location/light, then use exact character names plus position, pose, action, expression and props only. Never restate appearance, initial wardrobe or voice from character_locks. Set "characters_in_scene" to the EXACT visible lock names — every named speaker must be included.
-5. SPATIAL TOPOLOGY: preserve the existing spatial_layout when it is physically valid; otherwise repair it without changing the intended location. For every multi-zone/doorway/boundary scene return all five fields: ordered connected zones; immutable architecture/openings/boundaries; exact character zone + anchor distance + facing; one unobstructed walkable route; one real supported camera zone. first_frame_prompt, beats and motion_prompt MUST all obey this same map. Doorways/thresholds remain unobstructed; railings/guards remain only on the true exposed edge; nobody or the camera stands beyond them; zone changes visibly cross the declared connector.
+5. SPATIAL TOPOLOGY: preserve the existing spatial_layout when it is physically valid; otherwise repair it without changing the intended location. For every multi-zone/doorway/boundary scene return all five core fields: ordered connected zones; immutable architecture/openings/boundaries; exact character zone + anchor distance + facing; one unobstructed walkable route; one real supported camera zone. first_frame_prompt, beats and motion_prompt MUST all obey this same map. Doorways/thresholds remain unobstructed; railings/guards remain only on the true exposed edge; nobody or the camera stands beyond them; zone changes visibly cross the declared connector. REVOLVING DOOR ONLY: also return mechanism_motion, open before the crossing, keep one rotation direction and one occupied wedge, follow its curved arc, and exit only at physical alignment — never through glass.
 6. HARD CONSTRAINTS: keep "segment_number" = ${seg.segment_number}, "duration_seconds" = ${seg.duration_seconds || 10}, "marketing_role" = "${seg.marketing_role}", "environment_ref" = "${seg.environment_ref ?? "custom"}". Locked continuity mode = "${continuityMode}". ${strictContinuity ? "Open from the previous segment's exact end state and close on the next segment's exact opening state." : "Preserve only the continuity anchors declared by scene_intent/context; location, time or pose may change when this continuity mode explicitly permits it."} Update continuity_note accordingly.
 7. continuity_note = PHYSICAL SCENE STATE ONLY (who is where, holding what, in which pose/emotion, carried into the next shot). STRICTLY FORBIDDEN inside continuity_note, first_frame_prompt, motion_prompt and beats: numeric timecodes, production/meta commentary, word counts, wpm math, "moved to segment N", duration notes, quoted dialogue or editor notes. Only dialogue_lines.start_s/end_s may contain seconds.
 
@@ -2060,14 +2062,28 @@ Compatible with: Google Veo 3.1, Seedance 2.0, Kling, Runway, Pika`;
 // canonical home in the clip object. Do not prepend a second flattened prompt:
 // it repeats character/style/voice laws and makes the structured fields fight it.
 
-/** The one comprehensive negative list, reused at project + clip level. */
-export const VEO_NEGATIVE_LIST = [
-  "morphing, warping, teleporting, duplicated character or object, extra people, extra or fused fingers, malformed hands, missing limbs, identity or wardrobe drift, objects passing through solids, impossible physics, blocked doorway or walkable path, barrier in the wrong zone, camera or person beyond a railing or inside a wall, jitter, jump cut, overlapping or repeated voices, wrong-speaker lip sync, listener lip movement, lip movement during voiceover, on-screen text, captions, labels, HUD, watermark, plastic or CGI surfaces",
-  HUMAN_FACE_REALISM_NEGATIVE,
-].join(", ");
+/**
+ * Full failure blacklist from the stable pre-18/07 Veo contract. Keep this
+ * complete: compacting it removed independent guards that Veo does not infer
+ * from broader phrases (listener lip movement, duplicate hands, HUD text...).
+ */
+const VEO_SHARED_FAILURE_NEGATIVE =
+  "resembling a real or famous person, celebrity likeness, public-figure lookalike, real identifiable individual, morphing, warping, teleporting, floating or levitating objects, duplicated or doubled objects, extra or fused fingers, malformed or mutated hands, third hand, extra pair of hands, disembodied hand entering the frame, more hands than the people present, extra or missing limbs, limbs bending or passing through objects, the face changing, identity drift, age shifting, changed hair or wardrobe or accessories, warped or altered label or logo text, brand-colour change, extra people, the same person or character duplicated or appearing twice in one frame, a second copy of a named character in the background or reflection, objects passing through solid surfaces, deformed food or liquid, melting, jittery or stuttering motion, mid-clip jump cuts, both characters talking at once, overlapping or simultaneous voices, doubled voice, chorus, echo, a spoken line repeated or duplicated, listener lip movement, lip movement during voiceover, narrator voice coming from a visible character's mouth, wrong-speaker lip sync, swapped voices, ad-lib speech, speech bubble, on-screen text, captions, subtitles, burned-in dialogue text, title cards, karaoke or lyric text, translation text, camera or lens spec overlay, technical readout or HUD, info card in a corner, floating character name tag, a character name or age rendered as a label, character info card overlaid on the footage, colour-temperature or Kelvin label, exposure or Kelvin or lux or timecode text, any readable letters numbers or typography anywhere in the frame, watermark, channel logo";
+
+export const VEO_REFERENCE_CHARACTER_NEGATIVE_LIST =
+  `${VEO_SHARED_FAILURE_NEGATIVE}, ${REFERENCE_CHARACTER_ANTI_PLASTIC}`;
+
+export const VEO_NEGATIVE_LIST =
+  `${VEO_SHARED_FAILURE_NEGATIVE}, ${HUMAN_FACE_REALISM_NEGATIVE}, plastic or CGI skin, plastic wig hair, painted eyebrows or eyelashes`;
 
 export const CAMERA_SPEECH_INDEPENDENCE_RULE =
-  "Camera may frame the speaker, listener or both and never assigns speech; during each dialogue window only the named speaker's voice and lips move, every other visible mouth stays closed, and an off-screen speaker continues in their own voice with no visible mouth moving.";
+  "Camera subject and dialogue owner are independent: framing a listener never transfers the line to that listener. During each dialogue window only the named speaker's voice, lips and jaw move; every other visible mouth stays naturally closed, and an off-screen or out-of-focus speaker continues from their own physical position in their own voice.";
+
+const VEO_CAMERA_FOCUS_RULE =
+  "Natural cinematic depth of field; focus follows the explicitly assigned visual subject, NOT the active speaker. A speaker may remain off-camera or softly out of focus while the listener's silent reaction is sharp; framing never transfers dialogue or lip-sync to the visible subject.";
+
+const VEO_LIP_SYNC_DIRECTOR_NOTE =
+  "DIALOGUE OWNERSHIP: each line belongs exclusively to its dialogue.speaker_id and speaker_name and is spoken in that character's locked voice from that character's physical position; no other character may produce lip, jaw or speech-like mouth movement during that line, and each line is spoken exactly once. SPEAKER GAZE: the speaker addresses the scripted person according to scene geometry, never automatically the camera. LISTENER: silent with lips naturally closed, reacting only through eyes, brows, breathing and posture. VOICEOVER: comes from a fully off-screen narrator; no visible mouth moves. CAMERA INDEPENDENCE: camera subject, framing and focus are independent of dialogue ownership; if the camera holds the listener, the named speaker continues off-screen or out of focus and the listener remains silent. Dialogue start_sec/end_sec is the only clock; one voice at a time.";
 
 interface VeoJsonOptions {
   aspectRatio: string;
@@ -2399,9 +2415,17 @@ export function buildVeoJson(
           character_placement: scrub(cleanReferenceText(resolvedSpatialLayout.character_placement)),
           walkable_path: scrub(cleanReferenceText(resolvedSpatialLayout.walkable_path)),
           camera_zone: scrub(cleanReferenceText(resolvedSpatialLayout.camera_zone)),
+          ...(resolvedSpatialLayout.mechanism_motion
+            ? {
+                mechanism_motion: scrub(
+                  cleanReferenceText(resolvedSpatialLayout.mechanism_motion)
+                ),
+              }
+            : {}),
           invariants: SPATIAL_TOPOLOGY_INVARIANTS,
         }
       : null;
+    const hasRevolvingDoorMechanism = Boolean(spatialTopology?.mechanism_motion);
     // CROSS-CLIP CONTINUITY: what the PREVIOUS clip actually ended on — this is
     // what this clip must open from. The old code mislabelled this as the
     // current clip's own continuity_note, so a clip could open in a state that
@@ -2600,7 +2624,7 @@ export function buildVeoJson(
         framing: camera.framing,
         angle: camera.angle,
         movement: `${scrub(camera.movement)}. One smooth move or hold; no cuts or separate camera clock.`,
-        focus: "Natural depth of field; camera framing never assigns speech.",
+        focus: VEO_CAMERA_FOCUS_RULE,
       },
       scene_action: {
         start_state: entryState,
@@ -2612,7 +2636,9 @@ export function buildVeoJson(
             ? "Open from continuity_from_previous; visible causes create and preserve every state change."
             : "Open from start_state; visible causes create and preserve every state change.",
         staging: spatialTopology
-          ? "Follow spatial_topology; change zones or positions only through visible scripted movement."
+          ? hasRevolvingDoorMechanism
+            ? "Follow every spatial_topology field exactly. mechanism_motion is mandatory choreography: the occupied wedge, rotation direction and curved entry-to-exit route remain physically continuous; no body or carried object crosses glass."
+            : "Follow spatial_topology; change zones or positions only through visible scripted movement."
           : "Keep blocking and eye-lines physically possible; change positions only through visible scripted movement.",
       },
       foley_and_ambience: {
@@ -2627,26 +2653,26 @@ export function buildVeoJson(
       lip_sync_director_note:
         dialogue.length === 0
           ? "No dialogue; all visible mouths remain naturally closed."
-          : "Dialogue times are the only clock. Only the named speaker talks and lip-syncs; every other mouth stays closed. Camera framing does not choose the speaker.",
+          : VEO_LIP_SYNC_DIRECTOR_NOTE,
       output_rules: {
         frame: "one clean full-screen continuous shot; no panels or cuts",
         on_screen_text: "none — no captions, labels, logos, HUD or watermark",
-        audio: "Use the speaker's character_lock voice; one voice at a time, with no overlap, repetition, echo or ad-lib.",
+        audio: "Dialogue and voiceover are spoken audio only. Use each dialogue row's speaker_id as the sole voice and lip-sync owner and use that character's character_lock voice. Exactly one voice at a time; no simultaneous voices, chorus, echo, repeated line, swapped voice or ad-lib speech.",
         reference_priority: hasReferencedVisibleCharacter
           ? "Attached named images are the sole appearance authority; never merge or swap identities."
           : "Preserve the exact named identities in character_lock.",
       },
       negative_prompt: [
-        "extra people or duplicate characters, identity or wardrobe drift, morphing or teleporting",
-        "deformed hands or limbs, floating or duplicated props, objects crossing solids, impossible physics",
-        "jump cuts, wrong-speaker lip sync, overlapping or repeated voices, visible text or watermark",
         hasReferencedVisibleCharacter
-          ? REFERENCE_CHARACTER_ANTI_PLASTIC
-          : "plastic or waxy skin, plastic wig hair, painted eyebrows or eyelashes",
+          ? VEO_REFERENCE_CHARACTER_NEGATIVE_LIST
+          : VEO_NEGATIVE_LIST,
         spatialTopology
           ? "blocked connector, moved architecture, changed zone order, impossible camera or character position"
           : "unexplained pose or position change",
-      ].join(", "),
+        hasRevolvingDoorMechanism
+          ? "walking straight through a revolving door, crossing a radial glass wing, body or bag intersecting glass, reversing door rotation, changing compartments, exiting before the occupied opening aligns with the destination floor"
+          : "",
+      ].filter(Boolean).join(", "),
     };
   });
 

@@ -32,6 +32,7 @@ import {
 import type { WorldContext } from "@/types";
 import { compileCookingRecipeDigest } from "@/lib/cooking";
 import {
+  inferRevolvingDoorOperation,
   resolveSpatialLayout,
   renderSpatialTopologyLock,
   SPATIAL_TOPOLOGY_INVARIANTS,
@@ -722,7 +723,7 @@ PHYSICAL REALISM (every clip must look real, not "AI" — this is what eliminate
 STAGING & BLOCKING (a real director's coverage — this is what separates a watchable video from a flat, monotonous one):
 - 🧭 SPATIAL TOPOLOGY FIRST (mandatory before writing a first frame, beat, motion or camera for every multi-zone / threshold / boundary scene): create ONE compact "spatial_layout" and make every field consume it. (1) "zone_order" lists the physically connected zones in order; (2) "fixed_architecture" locks walls, door/window openings, thresholds, stairs, counters and perimeter barriers; (3) "character_placement" assigns EACH visible character an exact zone + named architectural/prop anchor + approximate distance + facing direction; (4) "walkable_path" declares the connected load-bearing route that must remain clear; (5) "camera_zone" gives the camera a real supported position and unobstructed line of sight. Do not describe the same geometry differently in first_frame_prompt, beats, motion_prompt or camera notes.
 - 🚪 CONNECTOR / BOUNDARY TRUTH: a doorway is an OPENING in a wall and the threshold is its walkable connector — a railing, wall, counter, furniture, planter or character can never cross or block it by accident. A railing/parapet/guard stays ONLY on the true exposed outer edge, never opposite/across a doorway, never in the middle of the usable floor, and never between two people who are looking or speaking across that doorway. Example only when the script actually contains an apartment balcony: interior room → open doorway/threshold → balcony floor → outer-perimeter railing → exterior/city beyond. This is a topology example, NOT a default location template.
-- 🔄 REVOLVING-DOOR KINEMATICS (only when the script actually names one): the start state places a crossing character BEFORE the entrance gap, never already through it. Establish one rotation direction and keep it. The character enters one wedge compartment, stays between the same two rigid radial glass wings, follows that compartment's curved arc, and exits only when its opening aligns with the destination floor. Never walk straight through a glass wing, cross the center shaft, change compartments, reverse the door or complete the crossing twice. Put this once in spatial_layout.mechanism_motion; other fields obey it without paraphrasing it.
+- 🔄 REVOLVING-DOOR KINEMATICS (only when the script actually names one): first classify this clip as ENTER, EXIT, PASS-THROUGH, HOLD-INSIDE or BACKGROUND-ONLY. ENTER starts before the entrance gap; EXIT starts already inside the same occupied wedge and crosses the destination threshold exactly once; HOLD-INSIDE never exits; BACKGROUND-ONLY has no occupied wedge. Establish one rotation direction and keep it. A crossing person stays between the same two rigid radial glass wings and exits only when that opening aligns with the destination floor. Never cross glass/the center shaft, change compartments, reverse, repeat an entry/exit, or describe a person as already outside before their scripted exit. Put the operation once in spatial_layout.mechanism_motion; all other fields obey it without paraphrasing it.
 - 🚶 OCCUPANCY & ROUTE: every person has one start zone and one facing direction. If motion changes zones, name the connector and show the continuous crossing; otherwise the person stays in the declared zone. Nobody stands through a wall/threshold, beyond a railing, over a void, or on a non-load-bearing surface. The camera follows the same rules and cannot be inside a wall or beyond a safety barrier.
 - 🔒 TOPOLOGY FREEZE: fixed architecture and zone order remain unchanged for the whole clip and across chained clips in the same location. Doors may open/close only through a visible hinged/sliding action, but the wall opening and threshold never migrate. If an uploaded location photo exists, derive this topology from that real photo and do not redesign it.
 - 🎭 VARY THE STAGING BETWEEN CLIPS: consecutive segments must NOT repeat the same two people in the same pose in the same framing (five straight clips of a couple sitting on a sofa = dead video). Between clips, change at least ONE of: a character's position in the room (standing at the window, crossing to the shelf, kneeling by the cabinet), their posture (sitting → leaning forward → standing), the spatial relationship (side-by-side → facing → one behind the other), or the shot framing. Move the story PHYSICALLY through the locked space — always by walking on screen or between segments, never teleporting.
@@ -1044,7 +1045,7 @@ ${beatExample}
         "character_placement": "string — each character: zone + anchor + approx distance + facing; nobody straddles architecture or stands beyond a boundary",
         "walkable_path": "string — continuous route; name the connector for any zone change; keep unobstructed",
         "camera_zone": "string — one real camera zone + side/height + line of sight; never inside a wall or beyond a railing",
-        "mechanism_motion": "optional string — revolving door only: one rotation direction + same occupied wedge + aligned physical exit"
+        "mechanism_motion": "optional string — revolving door only: classify ENTER / EXIT / PASS-THROUGH / HOLD-INSIDE / BACKGROUND-ONLY, then one direction + one physically consistent compartment state"
       },
       "wardrobe_state": [
         { "character": "TEXT-ONLY character name", "outfit": "FULL current outfit description", "outfit_materials": "real fabric materials", "hair": "current hair state" }
@@ -1153,7 +1154,7 @@ REWRITE RULES:
 2. Rewrite "motion_prompt" (45-90 words) as ONE untimed chronological physical sequence. State who addresses whom and the listener's silent reaction, but put NO seconds/time ranges, quoted dialogue or camera schedule in motion_prompt. Speech may accompany an ordinary body transition when the line, breath and context make it natural; otherwise place the larger movement before/after the line. CAUSAL CHAIN: every object interaction visibly follows reach → contact/grip → continuous transfer → release; every fall/open/spill has a visible cause first; all used props already exist in first_frame_prompt; the whole clip stays in ONE location. Keep the physical load light and meaningful.
 3. Rewrite "beats" (EXACTLY ${beatsPerSegment} beats) as untimed progressive framings of the same continuous action. CAMERA DOES NOT ASSIGN SPEECH: it may hold the speaker, listener reaction or both; camera notes contain no dialogue timecodes, use one calm smooth move and never force the framed person to lip-sync.
 4. Update "first_frame_prompt" only as needed: keep the same location/light, then use exact character names plus position, pose, action, expression and props only. Never restate appearance, initial wardrobe or voice from character_locks. Set "characters_in_scene" to the EXACT visible lock names — every named speaker must be included.
-5. SPATIAL TOPOLOGY: preserve the existing spatial_layout when it is physically valid; otherwise repair it without changing the intended location. For every multi-zone/doorway/boundary scene return all five core fields: ordered connected zones; immutable architecture/openings/boundaries; exact character zone + anchor distance + facing; one unobstructed walkable route; one real supported camera zone. first_frame_prompt, beats and motion_prompt MUST all obey this same map. Doorways/thresholds remain unobstructed; railings/guards remain only on the true exposed edge; nobody or the camera stands beyond them; zone changes visibly cross the declared connector. REVOLVING DOOR ONLY: also return mechanism_motion, open before the crossing, keep one rotation direction and one occupied wedge, follow its curved arc, and exit only at physical alignment — never through glass.
+5. SPATIAL TOPOLOGY: preserve the existing spatial_layout when it is physically valid; otherwise repair it without changing the intended location. For every multi-zone/doorway/boundary scene return all five core fields: ordered connected zones; immutable architecture/openings/boundaries; exact character zone + anchor distance + facing; one unobstructed walkable route; one real supported camera zone. first_frame_prompt, beats and motion_prompt MUST all obey this same map. Doorways/thresholds remain unobstructed; railings/guards remain only on the true exposed edge; nobody or the camera stands beyond them; zone changes visibly cross the declared connector. REVOLVING DOOR ONLY: classify ENTER / EXIT / PASS-THROUGH / HOLD-INSIDE / BACKGROUND-ONLY before writing mechanism_motion. EXIT opens with the character still in the same occupied wedge and crosses the destination threshold once at physical alignment; BACKGROUND-ONLY never invents an occupant. Never cross glass, reverse, change compartments or repeat a crossing.
 6. HARD CONSTRAINTS: keep "segment_number" = ${seg.segment_number}, "duration_seconds" = ${seg.duration_seconds || 10}, "marketing_role" = "${seg.marketing_role}", "environment_ref" = "${seg.environment_ref ?? "custom"}". Locked continuity mode = "${continuityMode}". ${strictContinuity ? "Open from the previous segment's exact end state and close on the next segment's exact opening state." : "Preserve only the continuity anchors declared by scene_intent/context; location, time or pose may change when this continuity mode explicitly permits it."} Update continuity_note accordingly.
 7. continuity_note = PHYSICAL SCENE STATE ONLY (who is where, holding what, in which pose/emotion, carried into the next shot). STRICTLY FORBIDDEN inside continuity_note, first_frame_prompt, motion_prompt and beats: numeric timecodes, production/meta commentary, word counts, wpm math, "moved to segment N", duration notes, quoted dialogue or editor notes. Only dialogue_lines.start_s/end_s may contain seconds.
 
@@ -2194,6 +2195,26 @@ export function buildVeoJson(
       .replace(/\b(?:then\s+)?hard\s+cuts?\s+to\b/gi, "then smoothly reframes to")
       .replace(/\b(?:then\s+)?cuts?\s+to\b/gi, "then smoothly reframes to")
       .replace(/\bjump\s+cuts?\b/gi, "smooth continuous reframe");
+  const hasIncidentalBagPressure = (...values: Array<string | null | undefined>) => {
+    const corpus = values.filter(Boolean).join(" ");
+    return /\b(?:shopping\s+bags?|bags?|straps?|handles?)\b|túi đồ|túi nặng|quai túi/iu.test(corpus)
+      && /\b(?:red\s+marks?|pressure\s+marks?|digging\s+in)\b|hằn đỏ|vệt đỏ|siết chặt/iu.test(corpus);
+  };
+  /** Keep an ordinary carrying-pressure beat clear of injury/violence filters. */
+  const softenIncidentalBagPressure = (text: string, enabled: boolean) => {
+    if (!enabled || !text) return text;
+    return text
+      .replace(/\bBàn Tay Hằn Đỏ\b/giu, "Bàn Tay Mỏi Vì Túi Nặng")
+      .replace(/\bdeep\s+red\s+marks?\b/giu, "temporary pressure lines")
+      .replace(/\bred\s+marks?\b/giu, "temporary pressure lines")
+      .replace(/\bred\s+from\s+(?:the\s+)?(?:bag\s+)?(?:straps?|handles?)\b/giu, "showing temporary pressure from the bag handles")
+      .replace(/\bdigging\s+in(?:to)?\b/giu, "pressing gently against")
+      .replace(/hằn đỏ rõ rệt/giu, "có vết hằn tạm thời")
+      .replace(/vết hằn đỏ|vệt đỏ/giu, "vết hằn tạm thời")
+      .replace(/\bđỏ\s+(?:rõ rệt\s+)?do\b/giu, "mỏi do")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+  };
   const hasUploadedReference = (name: string) =>
     characterReferenceNames.has(name.trim().toLowerCase());
   const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -2330,23 +2351,42 @@ export function buildVeoJson(
   };
   const cameraParts = (cameraText: string) => {
     const lower = cameraText.toLowerCase();
-    const framing = /extreme close|ecu/.test(lower)
+    const firstShot = cameraText.match(/\[(MEDIUM|CLOSE|EXTREME_CLOSE|WIDE|OTS)\]/i)?.[1]
+      ?.toLowerCase();
+    const framing = firstShot === "extreme_close"
       ? "ECU"
-      : /close|\bcu\b/.test(lower)
+      : firstShot === "close" || firstShot === "ots"
         ? "CU"
-        : /medium|\bms\b/.test(lower)
+        : firstShot === "medium"
           ? "MS"
-          : /wide|\bws\b|establish/.test(lower)
+          : firstShot === "wide"
             ? "WS"
-            : "MS";
+            : /extreme close|ecu/.test(lower)
+              ? "ECU"
+              : /close|\bcu\b/.test(lower)
+                ? "CU"
+                : /wide|\bws\b|establish/.test(lower)
+                  ? "WS"
+                  : "MS";
     const angle = /low angle|\blow\b/.test(lower)
       ? "low angle"
       : /high angle|overhead|top-down/.test(lower)
         ? "high angle"
         : "eye level";
+    const cameraClauses = cameraText
+      .split(/\s*;\s*/)
+      .map((clause) =>
+        clause
+          .replace(/\[(?:MEDIUM|CLOSE|EXTREME_CLOSE|WIDE|OTS)\]\s*/gi, "")
+          .replace(/\s*\(thats where the camera is\)/gi, "")
+          .trim()
+      )
+      .filter(Boolean);
     const movement = /static|locked/.test(lower)
       ? "static"
-      : cameraText || "single slow, smooth camera move";
+      : cameraClauses.length > 1
+        ? `One continuous ${framing === "WS" ? "wide" : framing === "CU" ? "close" : "medium"} composition begins on ${cameraClauses[0]} and gently follows the same action before settling on ${cameraClauses[cameraClauses.length - 1]}, without a cut or shot-scale change`
+        : cameraClauses[0] || "single slow, smooth camera move";
     return { framing, angle, movement };
   };
 
@@ -2379,34 +2419,78 @@ export function buildVeoJson(
         hair: wardrobe.hair || lock.hair,
       };
     });
-    const backgroundSetting = scrub(
-      extractBackgroundSetting(
-        seg.first_frame_prompt,
-        onScreen,
-        [env?.display_name, env?.scale, scrub(sb?.backdrop)].filter(Boolean).join("; ") || seg.title
-      )
+    const incidentalBagPressure = hasIncidentalBagPressure(
+      seg.title,
+      seg.first_frame_prompt,
+      seg.motion_prompt,
+      seg.continuity_note,
+      seg.scene_intent?.entry_exit?.entry_state,
+      seg.scene_intent?.entry_exit?.exit_state,
+      ...beats.flatMap((beat) => [beat.beat, beat.camera])
+    );
+    const backgroundSetting = softenIncidentalBagPressure(
+      scrub(
+        extractBackgroundSetting(
+          seg.first_frame_prompt,
+          onScreen,
+          [env?.display_name, env?.scale, scrub(sb?.backdrop)].filter(Boolean).join("; ") || seg.title
+        )
+      ),
+      incidentalBagPressure
     );
     const sceneStateOnly = (text: string | null | undefined) => {
-      const state = scrub(stripCanonicalCharacterDetails(text, visibleLocks));
+      const state = softenIncidentalBagPressure(
+        scrub(stripCanonicalCharacterDetails(text, visibleLocks)),
+        incidentalBagPressure
+      );
       if (!state || !backgroundSetting) return state;
       return state
         .replace(new RegExp(`^${escapeRegExp(backgroundSetting)}[\\s,.;:–—-]*`, "iu"), "")
         .trim();
     };
-    const entryState = sceneStateOnly(
+    const declaredEntryState = sceneStateOnly(
       seg.scene_intent?.entry_exit?.entry_state || seg.first_frame_prompt
     );
     const exitState = sceneStateOnly(
       seg.scene_intent?.entry_exit?.exit_state || seg.continuity_note
     );
-    const mainAction =
+    const mainAction = softenIncidentalBagPressure(
       scrub(compactActionText(seg.motion_prompt, visibleLocks)) ||
-      scrub(compactActionText(seg.scene_intent?.performance?.physical_behavior, visibleLocks));
+        scrub(compactActionText(seg.scene_intent?.performance?.physical_behavior, visibleLocks)),
+      incidentalBagPressure
+    );
+    // The previous clip's visible end is the only legal opening for a chained
+    // clip. Keep a contradictory regenerated first_frame_prompt out of the
+    // Veo payload instead of creating two competing start clocks.
+    const prevSeg = segIndex > 0 ? breakdown.segments[segIndex - 1] : null;
+    const prevExitState = prevSeg
+      ? softenIncidentalBagPressure(
+          scrub(
+            stripCanonicalCharacterDetails(
+              prevSeg.scene_intent?.entry_exit?.exit_state || prevSeg.continuity_note,
+              locks
+            )
+          ),
+          incidentalBagPressure
+        )
+      : "";
+    const continuityFromPrev = segIndex > 0 ? prevExitState || declaredEntryState : "";
+    const entryState = continuityFromPrev || declaredEntryState;
+    const revolvingDoorOperation = inferRevolvingDoorOperation({
+      setting: seg.first_frame_prompt,
+      motion: mainAction,
+      startState: entryState,
+      endState: exitState,
+      continuityFromPrevious: continuityFromPrev,
+    });
     const resolvedSpatialLayout = resolveSpatialLayout({
       layout: seg.spatial_layout,
       setting: seg.first_frame_prompt,
-      motion: seg.motion_prompt,
-      characterNames: seg.characters_in_scene,
+      motion: mainAction,
+      characterNames: onScreen,
+      startState: entryState,
+      endState: exitState,
+      continuityFromPrevious: continuityFromPrev,
     });
     const spatialTopology = resolvedSpatialLayout
       ? {
@@ -2426,22 +2510,6 @@ export function buildVeoJson(
         }
       : null;
     const hasRevolvingDoorMechanism = Boolean(spatialTopology?.mechanism_motion);
-    // CROSS-CLIP CONTINUITY: what the PREVIOUS clip actually ended on — this is
-    // what this clip must open from. The old code mislabelled this as the
-    // current clip's own continuity_note, so a clip could open in a state that
-    // contradicted the previous clip's ending (e.g. one character already
-    // seated / standing before the beat that moves them). Falls back to this
-    // clip's own note for the very first clip (no predecessor).
-    const prevSeg = segIndex > 0 ? breakdown.segments[segIndex - 1] : null;
-    const prevExitState = prevSeg
-      ? scrub(
-          stripCanonicalCharacterDetails(
-            prevSeg.scene_intent?.entry_exit?.exit_state || prevSeg.continuity_note,
-            locks
-          )
-        )
-      : "";
-    const continuityFromPrev = segIndex > 0 ? prevExitState || entryState : "";
     const characterLock = Object.fromEntries(
       visibleLocks.map((lock) => {
         const id = charIds.get(lock.name.trim().toLowerCase()) || "CHAR_1";
@@ -2575,8 +2643,20 @@ export function buildVeoJson(
         // no character entry, so its profile is declared here at its first use.
         return name ? line : { ...line, voice_personality: "off-screen narrator" };
       });
-    const cameraText = beats.map((beat) => oneLine(cleanContinuousText(beat.camera))).filter(Boolean).join("; ");
+    const cameraText = softenIncidentalBagPressure(
+      beats.map((beat) => oneLine(cleanContinuousText(beat.camera))).filter(Boolean).join("; "),
+      incidentalBagPressure
+    );
     const camera = cameraParts(cameraText);
+    const revolvingDoorCameraMovement =
+      revolvingDoorOperation === "exit"
+        ? "One continuous medium two-shot from the destination-side floor: hold the waiting character clear of the threshold, gently track the occupied wedge into alignment, then follow the exiting character's single step onto the floor and settle on the human reaction; keep both characters readable in the same shot"
+        : revolvingDoorOperation === "enter" || revolvingDoorOperation === "pass_through"
+          ? "One continuous medium shot from a supported lobby position: follow the crossing character from the origin-side gap into one wedge and along its curved arc, ending only at the physically aligned destination exit; no cut or shot change"
+          : revolvingDoorOperation === "hold"
+            ? "One continuous supported medium composition holds the same occupied wedge and the waiting character through the glass while the door rotates in one direction; no entry, exit, cut or shot change"
+            : "";
+    const cameraMovement = revolvingDoorCameraMovement || camera.movement;
     const ambience = [env?.sound_bed, opts.ambientAudio].filter(
       (value): value is string => !!value
     );
@@ -2608,7 +2688,10 @@ export function buildVeoJson(
         : {}),
       background_lock: {
         id: seg.environment_ref || `BACKGROUND_${seg.segment_number}`,
-        name: env?.display_name || seg.title,
+        name: softenIncidentalBagPressure(
+          env?.display_name || seg.title,
+          incidentalBagPressure
+        ),
         setting: backgroundSetting,
         scenery: scrub(sb?.backdrop),
         props: noHex(breakdown.product_dna) || "Only props explicitly named in setting and action",
@@ -2621,9 +2704,9 @@ export function buildVeoJson(
       },
       ...(spatialTopology ? { spatial_topology: spatialTopology } : {}),
       camera: {
-        framing: camera.framing,
+        framing: revolvingDoorCameraMovement ? "MS" : camera.framing,
         angle: camera.angle,
-        movement: `${scrub(camera.movement)}. One smooth move or hold; no cuts or separate camera clock.`,
+        movement: `${scrub(cameraMovement)}. One smooth move or hold; no cuts or separate camera clock.`,
         focus: VEO_CAMERA_FOCUS_RULE,
       },
       scene_action: {
@@ -2637,7 +2720,13 @@ export function buildVeoJson(
             : "Open from start_state; visible causes create and preserve every state change.",
         staging: spatialTopology
           ? hasRevolvingDoorMechanism
-            ? "Follow every spatial_topology field exactly. mechanism_motion is mandatory choreography: the occupied wedge, rotation direction and curved entry-to-exit route remain physically continuous; no body or carried object crosses glass."
+            ? revolvingDoorOperation === "exit"
+              ? "Follow every spatial_topology field exactly. The character starts inside the same occupied wedge and exits exactly once only at destination-side alignment; no re-entry, repeated exit or crossing through glass."
+              : revolvingDoorOperation === "hold"
+                ? "Follow every spatial_topology field exactly. Keep the character inside the same occupied wedge for the whole clip; no entry, exit or compartment change."
+                : revolvingDoorOperation === "background"
+                  ? "Follow every spatial_topology field exactly. The revolving door is unoccupied background architecture; no visible character enters, exits or appears inside a compartment."
+                  : "Follow every spatial_topology field exactly. mechanism_motion is mandatory choreography: one entry, the same occupied wedge, one rotation direction and one aligned exit; no repeated crossing or intersection with glass."
             : "Follow spatial_topology; change zones or positions only through visible scripted movement."
           : "Keep blocking and eye-lines physically possible; change positions only through visible scripted movement.",
       },
@@ -2670,7 +2759,7 @@ export function buildVeoJson(
           ? "blocked connector, moved architecture, changed zone order, impossible camera or character position"
           : "unexplained pose or position change",
         hasRevolvingDoorMechanism
-          ? "walking straight through a revolving door, crossing a radial glass wing, body or bag intersecting glass, reversing door rotation, changing compartments, exiting before the occupied opening aligns with the destination floor"
+          ? "walking straight through a revolving door, crossing a radial glass wing, body or bag intersecting glass, reversing door rotation, changing compartments, repeating an entry or exit, exiting before the occupied opening aligns with the destination floor"
           : "",
       ].filter(Boolean).join(", "),
     };

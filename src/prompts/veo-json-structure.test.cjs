@@ -164,7 +164,18 @@ test("Veo JSON keeps the stable structure without repeating character/outfit/voi
     clip.scene_action.motion,
     /single continuous motion, natural movement obeying/i
   );
-  assert.ok(JSON.stringify(clip).length < 9000);
+  assert.match(clip.camera.focus, /NOT the active speaker/i);
+  assert.match(clip.camera.focus, /speaker may remain off-camera/i);
+  assert.match(clip.lip_sync_director_note, /dialogue\.speaker_id/i);
+  assert.match(clip.lip_sync_director_note, /camera holds the listener/i);
+  assert.match(clip.negative_prompt, /listener lip movement/i);
+  assert.match(clip.negative_prompt, /wrong-speaker lip sync/i);
+  assert.match(clip.negative_prompt, /disembodied hand/i);
+  assert.match(clip.negative_prompt, /technical readout or HUD/i);
+  assert.ok(clip.negative_prompt.length > 1400);
+  // Full historical failure blacklist is intentionally retained; this cap
+  // still catches the old duplicated flat prompt without deleting safeguards.
+  assert.ok(JSON.stringify(clip).length < 12000);
 });
 
 test("revolving-door scenes never inherit doorway or stair topology", () => {
@@ -184,6 +195,48 @@ test("revolving-door scenes never inherit doorway or stair topology", () => {
   assert.match(layout.zone_order, /revolving-door compartment/i);
   assert.doesNotMatch(layout.zone_order, /stair/i);
   assert.doesNotMatch(layout.fixed_architecture, /stair/i);
+  assert.match(layout.walkable_path, /same wedge compartment/i);
+  assert.match(layout.mechanism_motion, /one rotation direction/i);
+  assert.match(layout.mechanism_motion, /never reverse/i);
+});
+
+test("Veo JSON serializes revolving-door mechanics and targeted failures without deleting the full negative contract", () => {
+  const result = buildVeoJson({
+    character_locks: [{
+      name: "Minh",
+      gender: "male",
+      is_child: false,
+      costume: "blue shirt, dark trousers",
+      voice: "native Standard Northern Vietnamese male voice",
+    }],
+    scene_bible: { backdrop: "mall lobby" },
+    segments: [{
+      segment_number: 1,
+      duration_seconds: 8,
+      title: "Cửa xoay",
+      marketing_role: "hook",
+      beats: [{ beat: "Minh enters", camera: "medium eye-level hold on the listener" }],
+      first_frame_prompt: "A mall lobby with one glass revolving door. Minh stands before the entrance gap on the origin side.",
+      motion_prompt: "Minh enters one compartment and follows its curved arc to the destination side.",
+      dialogue: "Em chờ anh nhé.",
+      speaker: "Minh",
+      dialogue_lines: [{ speaker: "Minh", text: "Em chờ anh nhé.", start_s: 1, end_s: 3 }],
+      characters_in_scene: ["Minh"],
+      environment_ref: "custom",
+      continuity_note: "Minh stands on the destination-side lobby floor.",
+    }],
+  }, {
+    aspectRatio: "9:16",
+    dialogueLanguage: "Vietnamese",
+  });
+
+  const clip = result.clips[0];
+  assert.match(clip.spatial_topology.mechanism_motion, /same two wings/i);
+  assert.match(clip.scene_action.staging, /mechanism_motion is mandatory/i);
+  assert.match(clip.negative_prompt, /walking straight through a revolving door/i);
+  assert.match(clip.negative_prompt, /exiting before the occupied opening aligns/i);
+  assert.match(clip.negative_prompt, /listener lip movement/i);
+  assert.ok(clip.negative_prompt.length > 1500);
 });
 
 test("ordinary step verbs do not invent stairs", () => {

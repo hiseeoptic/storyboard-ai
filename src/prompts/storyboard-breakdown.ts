@@ -2249,13 +2249,6 @@ export function buildVeoJson(
     fallback: string
   ) => {
     const source = oneLine(cleanReferenceText(text));
-    const mentionsName = (part: string) =>
-      characterNames.some((name) => exactNameMentioned(part, name));
-    const characterFreeSentences = source
-      .split(/(?<=[.!?])\s+/)
-      .map((part) => part.trim())
-      .filter((part) => part && !mentionsName(part));
-    if (characterFreeSentences.length > 0) return oneLine(characterFreeSentences.join(" "));
     const firstNameIndex = characterNames
       .map((name) => source.search(new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(name)}($|[^\\p{L}\\p{N}])`, "iu")))
       .filter((index) => index > 0)
@@ -2264,6 +2257,16 @@ export function buildVeoJson(
       const prefix = source.slice(0, firstNameIndex).replace(/[,:;\s]+$/g, "").trim();
       if (prefix.length >= 12) return prefix;
     }
+    const mentionsName = (part: string) =>
+      characterNames.some((name) => exactNameMentioned(part, name));
+    const leadingSetSentences: string[] = [];
+    for (const sentence of source.split(/(?<=[.!?])\s+/).map((part) => part.trim())) {
+      if (!sentence || mentionsName(sentence)) break;
+      // A sentence beginning with a pronoun is actor/action state, not the set.
+      if (/^(?:he|she|they|his|her|their|anh|cô|chị|em|họ)\b/iu.test(sentence)) break;
+      leadingSetSentences.push(sentence);
+    }
+    if (leadingSetSentences.length > 0) return oneLine(leadingSetSentences.join(" "));
     return oneLine(fallback);
   };
   const exactNameMentioned = (text: string, name: string) => {
@@ -2418,7 +2421,31 @@ export function buildVeoJson(
     const characterLock = Object.fromEntries(
       visibleLocks.map((lock) => {
         const id = charIds.get(lock.name.trim().toLowerCase()) || "CHAR_1";
+        const motivatedWardrobe = wardrobeByName.get(lock.name.trim().toLowerCase());
+        const outfit = motivatedWardrobe
+          ? { top: "See wardrobe_state", bottom: "See wardrobe_state" }
+          : splitOutfit(lock.costume);
+        const props = "Only props planted in background_lock.props or scene_action.start_state";
+        const sceneStateFields = {
+          position: resolvedSpatialLayout
+            ? "Use spatial_topology.character_placement"
+            : "Use scene_action.start_state",
+          orientation: resolvedSpatialLayout
+            ? "Use the facing direction in spatial_topology.character_placement"
+            : "Use scene_action.start_state",
+          pose: "Use scene_action.start_state",
+          foot_placement: "Physically grounded with stable contact on the declared walkable surface",
+          hand_detail: "Natural hands with correct contact on named props; no fused or extra fingers",
+        };
+        const actionFlow = {
+          pre_action: "Begin exactly in scene_action.start_state",
+          main_action: `Perform only ${lock.name}'s actions in scene_action.motion`,
+          post_action: "Finish exactly in scene_action.end_state",
+        };
         if (hasUploadedReference(lock.name)) {
+          const referenceOutfit = motivatedWardrobe
+            ? { top: "See wardrobe_state", bottom: "See wardrobe_state" }
+            : { top: "REFERENCE_IMAGE", bottom: "REFERENCE_IMAGE" };
           return [
             id,
             {
@@ -2426,11 +2453,36 @@ export function buildVeoJson(
               name: lock.name,
               reference_image_lock: REFERENCE_CHARACTER_APPEARANCE_LOCK,
               avoid_character_surface_artifacts: REFERENCE_CHARACTER_ANTI_PLASTIC,
+              species: "REFERENCE_IMAGE",
+              gender: "REFERENCE_IMAGE",
+              age: "REFERENCE_IMAGE",
               voice_personality: oneLine(lock.voice) || defaultVoiceFor(lock.gender, lock.is_child),
+              body_build: "REFERENCE_IMAGE",
+              face_shape: "REFERENCE_IMAGE",
+              hair: motivatedWardrobe?.hair ? "See wardrobe_state" : "REFERENCE_IMAGE",
+              hair_microdetail: "REFERENCE_IMAGE",
+              eyes: "REFERENCE_IMAGE",
+              eyebrows: "REFERENCE_IMAGE",
+              eyelashes: "REFERENCE_IMAGE",
+              nose_lips_teeth: "REFERENCE_IMAGE",
+              skin_or_fur_color: "REFERENCE_IMAGE",
+              skin_texture: "REFERENCE_IMAGE",
+              signature_feature: "REFERENCE_IMAGE",
+              outfit_top: referenceOutfit.top,
+              outfit_bottom: referenceOutfit.bottom,
+              outfit_materials: motivatedWardrobe
+                ? "See wardrobe_state"
+                : "REFERENCE_IMAGE",
+              helmet_or_hat: "REFERENCE_IMAGE",
+              shoes_or_footwear: "REFERENCE_IMAGE",
+              props,
+              body_metrics: "REFERENCE_IMAGE; cons=no-auto-rescale,lock-proportions",
+              ...sceneStateFields,
+              expression: "Use scene_action.start_state",
+              action_flow: actionFlow,
             },
           ];
         }
-        const outfit = splitOutfit(lock.costume);
         return [
           id,
           {
@@ -2444,7 +2496,9 @@ export function buildVeoJson(
             face_shape: noHex(lock.face_structure),
             // Always append the real-hair clause so older breakdowns without
             // hair_details still cannot render a plastic wig / doll cap.
-            hair: appendHairRealism(noHex(lock.hair)),
+            hair: motivatedWardrobe?.hair
+              ? "See wardrobe_state"
+              : appendHairRealism(noHex(lock.hair)),
             hair_microdetail: noHex(lock.hair_details),
             eyes: noHex(lock.eye_details || lock.eyes),
             eyebrows: noHex(lock.eyebrow_details),
@@ -2455,8 +2509,16 @@ export function buildVeoJson(
             signature_feature: scrub(lock.signature_features),
             outfit_top: outfit.top,
             outfit_bottom: outfit.bottom,
-            outfit_materials: noHex(lock.wardrobe_materials),
+            outfit_materials: motivatedWardrobe
+              ? "See wardrobe_state"
+              : noHex(lock.wardrobe_materials),
+            helmet_or_hat: "None unless declared in the initial outfit",
+            shoes_or_footwear: "Use the footwear declared in the initial outfit; do not invent a change",
+            props,
             body_metrics: "cons=no-auto-rescale,lock-proportions,keep-relative-height",
+            ...sceneStateFields,
+            expression: noHex(lock.default_expression) || "Use scene_action.start_state",
+            action_flow: actionFlow,
           },
         ];
       })
@@ -2510,6 +2572,16 @@ export function buildVeoJson(
       // images per clip. Never make them infer the cast from character_lock.
       characters_in_scene: onScreen,
       character_lock: characterLock,
+      ...(seg.wardrobe_state && seg.wardrobe_state.length > 0
+        ? {
+            wardrobe_state: seg.wardrobe_state.map((state) => ({
+              character: oneLine(state.character),
+              outfit: scrub(state.outfit),
+              outfit_materials: scrub(state.outfit_materials),
+              hair: scrub(state.hair),
+            })),
+          }
+        : {}),
       background_lock: {
         id: seg.environment_ref || `BACKGROUND_${seg.segment_number}`,
         name: env?.display_name || seg.title,

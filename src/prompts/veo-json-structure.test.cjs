@@ -28,8 +28,9 @@ const compileTs = (mod, filename) => {
 require.extensions[".ts"] = compileTs;
 
 const { buildVeoJson } = require("./storyboard-breakdown.ts");
+const { resolveSpatialLayout } = require("../lib/spatial-topology/index.ts");
 
-test("Veo JSON stays structured and does not repeat character/outfit/voice prose", () => {
+test("Veo JSON keeps the stable structure without repeating character/outfit/voice prose", () => {
   const breakdown = {
     character_locks: [
       {
@@ -115,14 +116,45 @@ test("Veo JSON stays structured and does not repeat character/outfit/voice prose
   ]);
   assert.equal(Object.hasOwn(clip.scene_action, "wardrobe_lock"), false);
   assert.equal(Object.hasOwn(clip.dialogue[0], "voice_personality"), false);
-  assert.match(clip.character_lock.CHAR_1.voice_personality, /Northern Vietnamese/i);
-  assert.deepEqual(Object.keys(clip.character_lock.CHAR_2), [
+  const stableCharacterFields = [
     "id",
     "name",
-    "reference_image_lock",
-    "avoid_character_surface_artifacts",
+    "species",
+    "gender",
+    "age",
     "voice_personality",
-  ]);
+    "body_build",
+    "face_shape",
+    "hair",
+    "eyes",
+    "skin_or_fur_color",
+    "skin_texture",
+    "signature_feature",
+    "outfit_top",
+    "outfit_bottom",
+    "outfit_materials",
+    "helmet_or_hat",
+    "shoes_or_footwear",
+    "props",
+    "body_metrics",
+    "position",
+    "orientation",
+    "pose",
+    "foot_placement",
+    "hand_detail",
+    "expression",
+    "action_flow",
+  ];
+  for (const character of Object.values(clip.character_lock)) {
+    for (const field of stableCharacterFields) assert.ok(Object.hasOwn(character, field), field);
+  }
+  assert.match(clip.character_lock.CHAR_1.voice_personality, /Northern Vietnamese/i);
+  assert.equal(clip.character_lock.CHAR_1.outfit_top, "light blue collared shirt");
+  assert.equal(clip.character_lock.CHAR_1.outfit_bottom, "dark grey trousers");
+  assert.equal(clip.character_lock.CHAR_2.outfit_top, "REFERENCE_IMAGE");
+  assert.equal(clip.character_lock.CHAR_2.face_shape, "REFERENCE_IMAGE");
+  assert.equal(clip.character_lock.CHAR_2.position, "Use spatial_topology.character_placement");
+  assert.ok(clip.character_lock.CHAR_2.action_flow);
   assert.doesNotMatch(
     clip.scene_action.start_state,
     /32 years|short black hair|light blue collared shirt|dark grey trousers/i
@@ -132,5 +164,34 @@ test("Veo JSON stays structured and does not repeat character/outfit/voice prose
     clip.scene_action.motion,
     /single continuous motion, natural movement obeying/i
   );
-  assert.ok(JSON.stringify(clip).length < 6500);
+  assert.ok(JSON.stringify(clip).length < 9000);
+});
+
+test("revolving-door scenes never inherit doorway or stair topology", () => {
+  const layout = resolveSpatialLayout({
+    layout: {
+      zone_order: "lower walkable area -> stair entry -> stair flight -> upper landing",
+      fixed_architecture: "wrong legacy stair template",
+      character_placement: "Minh and Lan stand by the mall entrance",
+      walkable_path: "wrong legacy stair route",
+      camera_zone: "mall lobby",
+    },
+    setting: "A modern mall entrance with one glass revolving door.",
+    motion: "Lan steps out of the revolving-door compartment while Minh waits on the lobby floor.",
+    characterNames: ["Minh", "Lan"],
+  });
+
+  assert.match(layout.zone_order, /revolving-door compartment/i);
+  assert.doesNotMatch(layout.zone_order, /stair/i);
+  assert.doesNotMatch(layout.fixed_architecture, /stair/i);
+});
+
+test("ordinary step verbs do not invent stairs", () => {
+  const layout = resolveSpatialLayout({
+    setting: "A flat mall lobby with a glass entrance.",
+    motion: "Minh steps toward Lan on the same-level polished floor.",
+    characterNames: ["Minh", "Lan"],
+  });
+
+  assert.equal(layout, null);
 });

@@ -8,10 +8,13 @@ import type { SpatialLayout } from "@/types";
  */
 
 const BALCONY = /\b(?:balcony|loggia)\b|ban công|lô gia|hiên căn hộ/iu;
+const REVOLVING_DOOR =
+  /\b(?:revolving door|rotating door|turnstile door)\b|cửa xoay/iu;
 const DOORWAY =
-  /\b(?:doorway|door frame|threshold|sliding door|open door|entrance|exit)\b|khung cửa|ngưỡng cửa|cửa ra ban công|cửa kính|cửa trượt|lối vào|lối ra/iu;
+  /\b(?:doorway|door frame|threshold|sliding door|open doorway|open door|door opening|entrance door|exit door)\b|khung cửa|ngưỡng cửa|cửa ra ban công|cửa trượt|lối vào cửa|lối ra cửa/iu;
 const RAILING = /\b(?:railing|guardrail|balustrade|parapet)\b|lan can|tay vịn|tường chắn/iu;
-const STAIRS = /\b(?:stairs?|staircase|landing|steps?)\b|cầu thang|bậc thang|chiếu nghỉ/iu;
+const STAIRS =
+  /\b(?:stairs?|staircase|stairway|stairwell|stair flight|flight of stairs|stair landing|landing between stairs|steps leading|steps up to|steps down to|front steps|concrete steps|stone steps)\b|cầu thang|bậc thang|chiếu nghỉ/iu;
 const EXPOSED_EDGE =
   /\b(?:rooftop|roof edge|platform edge|cliff edge|dock edge|pool edge)\b|sân thượng|mép mái|mép bục|vách đá|mép hồ|mép bến/iu;
 
@@ -26,6 +29,13 @@ function namesLine(characterNames?: string[]): string {
   return names.length > 0
     ? `${names.join(", ")} each occupies exactly the zone, floor position, distance from the anchor, and facing direction declared in the start state; feet stay on a real walkable surface.`
     : "Every visible character occupies exactly the zone, floor position, distance from the anchor, and facing direction declared in the start state; feet stay on a real walkable surface.";
+}
+
+function mentionsEveryCurrentCharacter(text: string, characterNames?: string[]): boolean {
+  const names = (characterNames ?? []).map(clean).filter(Boolean);
+  if (names.length === 0 || !text) return false;
+  const lower = text.toLocaleLowerCase();
+  return names.every((name) => lower.includes(name.toLocaleLowerCase()));
 }
 
 function suppliedLayout(layout?: SpatialLayout | null): SpatialLayout | null {
@@ -55,11 +65,13 @@ export function resolveSpatialLayout(params: {
   const supplied = suppliedLayout(params.layout);
   const text = `${clean(params.setting)} ${clean(params.motion)}`;
   const hasBalcony = BALCONY.test(text);
-  const hasDoorway = DOORWAY.test(text);
+  const hasRevolvingDoor = REVOLVING_DOOR.test(text);
+  const hasDoorway = !hasRevolvingDoor && DOORWAY.test(text);
   const hasRailing = RAILING.test(text);
   const hasStairs = STAIRS.test(text);
   const hasEdge = EXPOSED_EDGE.test(text);
-  const highRisk = hasBalcony || hasDoorway || hasRailing || hasStairs || hasEdge;
+  const highRisk =
+    hasBalcony || hasRevolvingDoor || hasDoorway || hasRailing || hasStairs || hasEdge;
 
   if (!supplied && !highRisk) return null;
   if (supplied && !highRisk) {
@@ -90,6 +102,18 @@ export function resolveSpatialLayout(params: {
         "A continuous clear floor route runs from the interior through the doorway threshold onto the balcony. No railing, wall, furniture, planter, body, or prop cuts across this route.",
       camera_zone:
         "The camera occupies one named walkable zone on the safe side of the railing, with a direct line of sight through open air; it is never inside a wall, inside the threshold, or beyond the outer railing.",
+    };
+  } else if (hasRevolvingDoor) {
+    fallback = {
+      zone_order:
+        "mall lobby side A -> rotating glass revolving-door compartment -> mall lobby side B",
+      fixed_architecture:
+        "The revolving door is one circular glass mechanism with curved panels rotating around a fixed center. Its compartments, center axis, floor threshold and surrounding lobby architecture stay coherent.",
+      character_placement: namesLine(params.characterNames),
+      walkable_path:
+        "Anyone entering or exiting follows one real curved compartment path onto the same-level lobby floor; no body, bag or prop passes through a glass panel.",
+      camera_zone:
+        "The camera occupies one supported lobby position with a clear sightline through or around the glass; it never enters the rotating center or clips through a panel.",
     };
   } else if (hasStairs) {
     fallback = {
@@ -140,13 +164,19 @@ export function resolveSpatialLayout(params: {
     // people or place them in both zones.
     // For an explicit cast, bind only the current names and let the segment's
     // start_state carry the detailed position/facing prose.
-    character_placement:
-      params.characterNames && params.characterNames.length > 0
+    character_placement: mentionsEveryCurrentCharacter(
+      supplied.character_placement,
+      params.characterNames
+    )
+      ? supplied.character_placement
+      : params.characterNames && params.characterNames.length > 0
         ? namesLine(params.characterNames)
         : supplied.character_placement || fallback.character_placement,
     walkable_path: fallback.walkable_path,
     camera_zone: supplied.camera_zone
-      ? `${supplied.camera_zone} This position is valid only on a real supported walkable surface, on the safe side of every boundary, with no solid architecture blocking the sightline.`
+      ? /real supported walkable surface|supported lobby position/iu.test(supplied.camera_zone)
+        ? supplied.camera_zone
+        : `${supplied.camera_zone} This position is valid only on a real supported walkable surface, on the safe side of every boundary, with no solid architecture blocking the sightline.`
       : fallback.camera_zone,
   };
 }

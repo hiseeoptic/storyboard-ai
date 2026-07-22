@@ -28,7 +28,10 @@ const compileTs = (mod, filename) => {
 require.extensions[".ts"] = compileTs;
 
 const { buildVeoJson } = require("./storyboard-breakdown.ts");
-const { resolveSpatialLayout } = require("../lib/spatial-topology/index.ts");
+const {
+  inferRevolvingDoorOperation,
+  resolveSpatialLayout,
+} = require("../lib/spatial-topology/index.ts");
 
 test("Veo JSON keeps the stable structure without repeating character/outfit/voice prose", () => {
   const breakdown = {
@@ -195,9 +198,30 @@ test("revolving-door scenes never inherit doorway or stair topology", () => {
   assert.match(layout.zone_order, /revolving-door compartment/i);
   assert.doesNotMatch(layout.zone_order, /stair/i);
   assert.doesNotMatch(layout.fixed_architecture, /stair/i);
-  assert.match(layout.walkable_path, /same wedge compartment/i);
-  assert.match(layout.mechanism_motion, /one rotation direction/i);
+  assert.match(layout.character_placement, /Lan starts inside/i);
+  assert.match(layout.walkable_path, /destination-side threshold exactly once/i);
+  assert.match(layout.mechanism_motion, /already occupied wedge/i);
   assert.match(layout.mechanism_motion, /never reverse/i);
+});
+
+test("revolving-door operation distinguishes an exit from background-only motion", () => {
+  assert.equal(inferRevolvingDoorOperation({
+    setting: "A mall lobby with one glass revolving door.",
+    motion: "Lan steps out of the revolving-door compartment while Minh waits.",
+    startState: "Lan is inside the same occupied compartment.",
+  }), "exit");
+
+  const background = resolveSpatialLayout({
+    setting: "A mall lobby with one glass revolving door behind Minh and Lan.",
+    motion: "Minh and Lan remain on the lobby floor while the revolving door rotates behind them.",
+    startState: "Minh and Lan stand together on the destination-side lobby floor.",
+    endState: "They remain together on the same lobby floor.",
+    characterNames: ["Minh", "Lan"],
+  });
+
+  assert.match(background.walkable_path, /background architecture only/i);
+  assert.match(background.mechanism_motion, /unoccupied revolving door/i);
+  assert.doesNotMatch(background.mechanism_motion, /occupied wedge/i);
 });
 
 test("Veo JSON serializes revolving-door mechanics and targeted failures without deleting the full negative contract", () => {
@@ -237,6 +261,98 @@ test("Veo JSON serializes revolving-door mechanics and targeted failures without
   assert.match(clip.negative_prompt, /exiting before the occupied opening aligns/i);
   assert.match(clip.negative_prompt, /listener lip movement/i);
   assert.ok(clip.negative_prompt.length > 1500);
+});
+
+test("Veo JSON reconciles chained revolving-door exit state without changing its schema", () => {
+  const result = buildVeoJson({
+    character_locks: [
+      {
+        name: "Minh",
+        gender: "male",
+        is_child: false,
+        voice: "native Standard Northern Vietnamese male voice",
+      },
+      {
+        name: "Lan",
+        gender: "female",
+        is_child: false,
+        voice: "native Standard Northern Vietnamese female voice",
+      },
+    ],
+    scene_bible: { backdrop: "modern mall lobby" },
+    segments: [
+      {
+        segment_number: 1,
+        duration_seconds: 10,
+        title: "Cửa xoay",
+        marketing_role: "hook",
+        beats: [{ beat: "Lan waits inside", camera: "medium hold through the glass" }],
+        first_frame_prompt: "A modern mall entrance with one glass revolving door. Lan is inside one compartment while Minh waits outside.",
+        motion_prompt: "The occupied wedge rotates slowly while Lan remains between the same two glass wings and Minh waits outside.",
+        characters_in_scene: ["Minh", "Lan"],
+        environment_ref: "custom",
+        continuity_note: "Lan remains inside the same occupied revolving-door compartment, looking toward Minh, who waits on the destination-side lobby floor.",
+      },
+      {
+        segment_number: 2,
+        duration_seconds: 10,
+        title: "Bàn Tay Hằn Đỏ",
+        marketing_role: "problem",
+        beats: [
+          { beat: "Lan exits", camera: "[MEDIUM] Lan has already exited the door" },
+          { beat: "Minh looks down", camera: "[EXTREME_CLOSE] deep red marks on Lan's hand" },
+          { beat: "Minh reacts", camera: "[CLOSE] Minh becomes concerned" },
+        ],
+        first_frame_prompt: "A modern mall entrance. Lan has just exited the revolving door and Minh faces her.",
+        motion_prompt: "Lan steps out of the revolving door holding heavy shopping bags. Minh notices deep red marks on her skin where the bag straps have been digging in.",
+        dialogue: "Anh cứ đi trước hoài, em theo muốn hụt hơi luôn đó.",
+        speaker: "Lan",
+        dialogue_lines: [
+          { speaker: "Lan", text: "Anh cứ đi trước hoài, em theo muốn hụt hơi luôn đó.", start_s: 2, end_s: 6 },
+          { speaker: "Minh", text: "Ủa anh tưởng em theo kịp mà...", start_s: 6.3, end_s: 9.2 },
+        ],
+        characters_in_scene: ["Minh", "Lan"],
+        environment_ref: "custom",
+        spatial_layout: {
+          zone_order: "origin floor -> revolving door -> destination floor",
+          fixed_architecture: "one glass revolving door",
+          character_placement: "Lan and Minh both stand outside",
+          walkable_path: "enter the door from the origin side",
+          camera_zone: "mall exterior",
+        },
+        continuity_note: "Minh looks at Lan's hand, which is red from the bag straps, with quiet concern.",
+      },
+    ],
+  }, {
+    aspectRatio: "9:16",
+    dialogueLanguage: "Vietnamese",
+    characterReferenceNames: ["Minh", "Lan"],
+  });
+
+  const clip = result.clips[1];
+  assert.deepEqual(Object.keys(clip).slice(0, 6), [
+    "scene_id",
+    "duration_sec",
+    "visual_style",
+    "scene_role",
+    "characters_in_scene",
+    "character_lock",
+  ]);
+  assert.match(clip.scene_action.start_state, /Lan remains inside the same occupied/i);
+  assert.doesNotMatch(clip.scene_action.start_state, /has just exited/i);
+  assert.match(clip.spatial_topology.character_placement, /Lan starts inside/i);
+  assert.match(clip.spatial_topology.walkable_path, /threshold exactly once/i);
+  assert.doesNotMatch(clip.spatial_topology.walkable_path, /Enter only/i);
+  assert.equal(clip.camera.framing, "MS");
+  assert.match(clip.camera.movement, /one continuous medium two-shot/i);
+  assert.doesNotMatch(clip.camera.movement, /EXTREME_CLOSE|deep red marks/i);
+  assert.match(clip.scene_action.motion, /temporary pressure lines/i);
+  assert.doesNotMatch(clip.scene_action.motion, /deep red marks|digging in/i);
+  assert.doesNotMatch(clip.scene_action.end_state, /red from/i);
+  assert.match(clip.scene_action.staging, /exits exactly once/i);
+  assert.match(clip.negative_prompt, /repeating an entry or exit/i);
+  assert.equal(clip.dialogue[0].speaker_id, "CHAR_2");
+  assert.equal(clip.dialogue[1].speaker_id, "CHAR_1");
 });
 
 test("ordinary step verbs do not invent stairs", () => {

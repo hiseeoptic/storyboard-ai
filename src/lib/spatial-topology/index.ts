@@ -46,6 +46,7 @@ function suppliedLayout(layout?: SpatialLayout | null): SpatialLayout | null {
     character_placement: clean(layout.character_placement),
     walkable_path: clean(layout.walkable_path),
     camera_zone: clean(layout.camera_zone),
+    mechanism_motion: clean(layout.mechanism_motion),
   };
   return Object.values(normalized).some(Boolean) ? normalized : null;
 }
@@ -106,14 +107,16 @@ export function resolveSpatialLayout(params: {
   } else if (hasRevolvingDoor) {
     fallback = {
       zone_order:
-        "mall lobby side A -> rotating glass revolving-door compartment -> mall lobby side B",
+        "origin-side lobby floor -> one wedge-shaped revolving-door compartment -> destination-side lobby floor",
       fixed_architecture:
-        "The revolving door is one circular glass mechanism with curved panels rotating around a fixed center. Its compartments, center axis, floor threshold and surrounding lobby architecture stay coherent.",
+        "One fixed circular glass enclosure surrounds one fixed center shaft. Rigid radial glass wings divide the door into wedge-shaped compartments and rotate together around that shaft; the enclosure, shaft, thresholds and lobby architecture never move or deform.",
       character_placement: namesLine(params.characterNames),
       walkable_path:
-        "Anyone entering or exiting follows one real curved compartment path onto the same-level lobby floor; no body, bag or prop passes through a glass panel.",
+        "Enter only through the open gap aligned with the origin side, remain inside the same wedge compartment, follow its curved floor arc, and exit only after that same compartment opening aligns with the destination side. No straight shortcut through glass, center shaft or enclosure.",
       camera_zone:
         "The camera occupies one supported lobby position with a clear sightline through or around the glass; it never enters the rotating center or clips through a panel.",
+      mechanism_motion:
+        "At the first visible movement establish one rotation direction and keep it for the entire clip. The radial wings and occupied compartment rotate together as one rigid mechanism. The person and every carried bag remain between the same two wings, never reverse, overtake, cross a wing or center shaft, and step onto the destination floor only when the opening physically aligns with it.",
     };
   } else if (hasStairs) {
     fallback = {
@@ -178,6 +181,11 @@ export function resolveSpatialLayout(params: {
         ? supplied.camera_zone
         : `${supplied.camera_zone} This position is valid only on a real supported walkable surface, on the safe side of every boundary, with no solid architecture blocking the sightline.`
       : fallback.camera_zone,
+    ...(fallback.mechanism_motion
+      ? { mechanism_motion: fallback.mechanism_motion }
+      : supplied.mechanism_motion
+        ? { mechanism_motion: supplied.mechanism_motion }
+        : {}),
   };
 }
 
@@ -188,7 +196,7 @@ export const SPATIAL_TOPOLOGY_INVARIANTS =
 export function renderSpatialTopologyLock(layout?: SpatialLayout | null): string {
   const normalized = suppliedLayout(layout);
   if (!normalized) return "";
-  return `SPATIAL TOPOLOGY LOCK — ZONE ORDER: ${normalized.zone_order}; FIXED ARCHITECTURE: ${normalized.fixed_architecture}; CHARACTER PLACEMENT: ${normalized.character_placement}; CLEAR WALKABLE PATH: ${normalized.walkable_path}; CAMERA ZONE: ${normalized.camera_zone}; INVARIANTS: ${SPATIAL_TOPOLOGY_INVARIANTS}`;
+  return `SPATIAL TOPOLOGY LOCK — ZONE ORDER: ${normalized.zone_order}; FIXED ARCHITECTURE: ${normalized.fixed_architecture}; CHARACTER PLACEMENT: ${normalized.character_placement}; CLEAR WALKABLE PATH: ${normalized.walkable_path}; CAMERA ZONE: ${normalized.camera_zone}${normalized.mechanism_motion ? `; MECHANISM MOTION: ${normalized.mechanism_motion}` : ""}; INVARIANTS: ${SPATIAL_TOPOLOGY_INVARIANTS}`;
 }
 
 /** Short version for the small panels of the master overview board. */

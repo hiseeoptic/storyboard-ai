@@ -205,3 +205,53 @@ test("a scene with no mechanism emits no mechanism_motion", () => {
   // Either no layout at all (simple single-zone scene) or no mechanism field.
   if (layout) assert.equal(layout.mechanism_motion, undefined);
 });
+
+test("uploaded-reference characters keep the photo as the ONLY wardrobe authority", () => {
+  const {
+    stripUploadedCharacterAppearance,
+  } = require("../lib/character-realism.ts");
+
+  const cleaned = stripUploadedCharacterAppearance(
+    "Lan, with long black hair, wearing a soft beige knit top and dark indigo jeans, stands beside Minh and smiles.",
+    ["Lan"]
+  );
+
+  // Identity prose is stripped...
+  assert.doesNotMatch(cleaned, /long black hair/i);
+  // ...and so is invented wardrobe: the uploaded photo is the only clothing
+  // authority, so leaving this in is what made outfits drift between clips.
+  assert.doesNotMatch(cleaned, /beige knit top/i);
+  assert.doesNotMatch(cleaned, /indigo jeans/i);
+  // Name, blocking and ordinary acting survive.
+  assert.match(cleaned, /Lan/);
+  assert.match(cleaned, /smiles/i);
+});
+
+test("appearance stripping never eats blocking, props or acting language", () => {
+  const {
+    stripUploadedCharacterAppearance,
+  } = require("../lib/character-realism.ts");
+
+  // The opposite failure mode: an over-broad stripper mangles ordinary prose
+  // (a previous version turned "calmly" into "ly"). Everything here is action,
+  // blocking or prop state and must survive untouched.
+  const kept = stripUploadedCharacterAppearance(
+    "Lan calmly sets the warm teapot on the low shelf, then steps to the top of the stairs " +
+      "with a cup in her right hand, faces toward Minh and smiles warmly.",
+    ["Lan"]
+  );
+
+  for (const phrase of [
+    "calmly",
+    "warm teapot",
+    "the low shelf",
+    "the top of the stairs",
+    "a cup in her right hand",
+    "smiles warmly",
+  ]) {
+    assert.ok(
+      kept.toLowerCase().includes(phrase.toLowerCase()),
+      `stripping removed legitimate prose: "${phrase}" — got: ${kept}`
+    );
+  }
+});

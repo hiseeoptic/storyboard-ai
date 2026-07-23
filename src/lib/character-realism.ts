@@ -40,8 +40,17 @@ export function stripUploadedCharacterAppearance(
     "(?:eye|eyes)\\s+(?:colour|color|shape|details?|iris|pupil|sclera|eyelid|catchlight|tear[- ]line)|" +
     "(?:eyebrow|brows?)\\s+(?:details?|shape|colour|color|thickness|density|arch|tail|hair)|" +
     "(?:eyelash|lashes?)\\s+(?:details?|length|spacing|curvature|direction)|" +
+    "beard|moustache|mustache|" +
+    // Wardrobe stays in this list on purpose: for an uploaded-reference
+    // character the photo is the ONLY wardrobe authority, so invented clothing
+    // prose must be stripped or it fights the image and drifts clip to clip.
     "wardrobe|outfit|clothes|shirt|blouse|trouser|pants|skirt|dress|jacket|" +
-    "sweater|uniform|shoe|footwear|accessor";
+    "sweater|uniform|shoe|footwear|accessor|" +
+    // Unambiguous garment nouns, so the "with …"/"'s …" clause forms are caught
+    // too. Deliberately excludes words with common non-clothing senses (top,
+    // cap, tie, suit) that would eat legitimate blocking or prop language.
+    "jeans|denim|hoodie|cardigan|blazer|overcoat|scarf|sandals|sneakers|" +
+    "boots|apron|gown|robe|shorts|leggings|jumper";
   const escaped = characterNames
     .map((name) => name.trim())
     .filter(Boolean)
@@ -70,8 +79,13 @@ export function stripUploadedCharacterAppearance(
     `\\b(?:with|having|whose|has|wears)\\s+[^,.;!?]*(?:${appearance})[^,.;!?]*`,
     "gi"
   );
+  // "wearing …" / "dressed in …" is ALWAYS wardrobe prose, so it does not need
+  // to also contain a word from the garment vocabulary. Requiring one meant any
+  // unlisted garment survived ("wearing a soft beige knit top and dark indigo
+  // jeans" matched nothing), leaving invented clothing to fight the uploaded
+  // photo and drift from clip to clip.
   const clothing = new RegExp(
-    `\\b(?:wearing|dressed\\s+in)\\s+[^,.;!?]*(?:${appearance})[^,.;!?]*`,
+    "\\b(?:wearing|dressed\\s+in|clad\\s+in)\\s+[^,.;!?]*",
     "gi"
   );
   for (const name of escaped) {

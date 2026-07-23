@@ -1757,32 +1757,61 @@ export async function generateStoryboardPlan(
     // 10-layer Context IR. This is best-effort during the migration: an API
     // failure warns and falls back to the legacy direct storyboard path.
     let contextBoundInput = stage2Input;
-    try {
-      // Stage 1.5 is best-effort (a clean fallback exists), so give it just ONE
-      // attempt: a 2nd 45s retry here was eating the shared deadline and
-      // starving the storyboard stage into the "safe budget" timeout.
+    {
+      // Stage 1.5 gets ONE attempt PER PROVIDER: a second attempt on the same
+      // provider was eating the shared deadline, but giving up after a single
+      // provider was worse — this was the only stage without a cross-provider
+      // fallback, so a denied/overloaded Gemini key lost the 10-layer context
+      // every single time even though the other providers were working fine
+      // and already building the script and the storyboard.
       const contextDeadlineMs = stageDeadlineMs(
         generationDeadlineMs,
         CONTEXT_STAGE_BUDGET_MS,
         STORYBOARD_STAGE_RESERVE_MS
       );
-      // Best-effort stage: if its share is already gone, skip it outright
-      // rather than spending the storyboard stage's reserved time on it.
-      if (contextDeadlineMs - Date.now() < MIN_PROVIDER_FALLBACK_BUDGET_MS) {
-        throw new Error("bỏ qua để dành thời gian dựng storyboard");
+      // Try the storyboard provider first (its context is what the storyboard
+      // stage will consume), then the script writer, then anything left.
+      const contextChain: AIProvider[] = [];
+      for (const candidate of [
+        provider,
+        scriptProvider,
+        "claude",
+        "openai",
+        "gemini",
+      ] as AIProvider[]) {
+        if (!contextChain.includes(candidate)) contextChain.push(candidate);
       }
-      const resolvedContext = await analyzeVideoContext(stage2Input, provider, {
-        deadlineMs: contextDeadlineMs,
-        maxAttempts: 1,
-      });
-      contextBoundInput = {
-        ...stage2Input,
-        resolved_context: sanitizeUploadedCharacterContext(input, resolvedContext),
-      };
-    } catch (e) {
-      warnings.push(
-        `Không khóa được Context IR 10 tầng — tạm dùng luồng cũ, storyboard vẫn dựng bình thường. (${explainProviderError(e)})`
-      );
+      const contextFailures: string[] = [];
+      for (const [chainIndex, cp] of contextChain.entries()) {
+        // Best-effort stage: if its share is gone, stop rather than spending
+        // the storyboard stage's reserved time on it.
+        if (contextDeadlineMs - Date.now() < MIN_PROVIDER_FALLBACK_BUDGET_MS) break;
+        try {
+          const resolvedContext = await analyzeVideoContext(stage2Input, cp, {
+            deadlineMs: contextDeadlineMs,
+            maxAttempts: 1,
+          });
+          contextBoundInput = {
+            ...stage2Input,
+            resolved_context: sanitizeUploadedCharacterContext(input, resolvedContext),
+          };
+          if (chainIndex > 0) {
+            warnings.push(
+              `Context IR 10 tầng do ${cp} phân tích thay vì ${provider} (model chính không phản hồi).`
+            );
+          }
+          break;
+        } catch (e) {
+          contextFailures.push(`${cp}: ${explainProviderError(e)}`);
+        }
+      }
+      if (!contextBoundInput.resolved_context) {
+        warnings.push(
+          `Không khóa được Context IR 10 tầng — tạm dùng luồng cũ, storyboard vẫn dựng bình thường. (${
+            contextFailures.join(" | ") || "hết thời gian dành cho bước này"
+          })`
+        );
+      }
     }
 
     let breakdown: StoryboardGenerationOutput;

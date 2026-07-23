@@ -731,6 +731,9 @@ STAGING & BLOCKING (a real director's coverage — this is what separates a watc
 - 🚪 CONNECTOR / BOUNDARY TRUTH: a doorway is an OPENING in a wall and the threshold is its walkable connector — a railing, wall, counter, furniture, planter or character can never cross or block it by accident. A railing/parapet/guard stays ONLY on the true exposed outer edge, never opposite/across a doorway, never in the middle of the usable floor, and never between two people who are looking or speaking across that doorway. Example only when the script actually contains an apartment balcony: interior room → open doorway/threshold → balcony floor → outer-perimeter railing → exterior/city beyond. This is a topology example, NOT a default location template.
 - 🚶 OCCUPANCY & ROUTE: every person has one start zone and one facing direction. If motion changes zones, name the connector and show the continuous crossing; otherwise the person stays in the declared zone. Nobody stands through a wall/threshold, beyond a railing, over a void, or on a non-load-bearing surface. The camera follows the same rules and cannot be inside a wall or beyond a safety barrier.
 - 🔒 TOPOLOGY FREEZE: fixed architecture and zone order remain unchanged for the whole clip and across chained clips in the same location. Doors may open/close only through a visible hinged/sliding action, but the wall opening and threshold never migrate. If an uploaded location photo exists, derive this topology from that real photo and do not redesign it.
+- 🚪 DOOR OPERATION (write it or the door opens by itself): whenever a door is used, first fix its type and geometry ONCE — hinged or sliding, which side the hinge/track is on, and which way the leaf travels — then keep that identical in every clip. A door NEVER moves on its own: the motion_prompt must show the named hand reach the handle, grip it, and only THEN the leaf moving. Write the direction honestly — a PULL door is pulled toward the character, so they step back to clear the swinging arc before walking through; a PUSH door is pushed away and they follow it through. Never let a character walk through a doorway before the leaf has visibly opened, never let a body, arm or carried bag pass through a closed leaf, its glass or its frame, and never have someone push a pull door open. If the script does not need the door operated, leave it in a fixed declared state (already open / already closed) for the whole clip.
+- 🎒 CARRIED-OBJECT BINDING (this is what makes "the hand is here, the bag is there"): every carried bag, strap, box, tool or handbag is attached to ONE named hand or shoulder, and the first_frame_prompt says which. It hangs from that grip, swings and settles with that limb under gravity, and stays the same size, colour and weight all clip. It never floats beside the body, drifts, lags behind the character, or passes through an arm, hip or torso. To move it to the other hand, write the visible transfer (reach → grip → release); otherwise it stays exactly where it was declared.
+- 🖼️ BACKGROUND HOLDS STILL (this is what stops the mid-shot flicker / set swap): the set is established once in first_frame_prompt and then does NOT change for the rest of the clip. Walls, windows, doorways, furniture, street and skyline keep the same position, colour, material and scale in every frame; nothing behind the action appears, disappears, slides, re-renders or dissolves into a different place; and the key light, exposure, colour temperature, time of day and weather stay constant from second 0 to the end. Only the named characters and their declared props move. Never write a background change, a "meanwhile" cutaway or a lighting shift inside one clip — if the story needs a different place or a different light, that is the NEXT segment.
 - 🎭 MOTIVATED STAGING VARIATION ONLY: avoid five visually identical clips, but never violate continuity to create variety. Between clips, change framing, gesture, eyeline, hand business or camera distance first. Change a character's position, seated/standing posture or spatial relationship ONLY when the approved script or previous continuity_note provides a visible movement reason; otherwise preserve the same seat/side/standing mark exactly.
 - ⏱️ FIRST 2-3 SECONDS DECIDE EVERYTHING (every genre, not just hooks): segment 1 must open ON an arresting, concrete, already-in-motion image — a visible action or a charged human moment mid-beat — never a static establishing wide, never someone simply standing/sitting waiting to speak, never a slow fade-in. The very first frame should make a scrolling viewer ask "what is happening here?".
 - 🎭 GESTURE MUST CARRY THE LINE'S EMOTION: every spoken line is paired with a physical action whose emotion MATCHES that exact line — the body says what the words say (or deliberately contradicts them when the story wants subtext). Name the specific action tied to that line's feeling: hurt = fingers tightening on the glass and a swallow before speaking; guilt = eyes dropping, phone lowered slowly, shoulders folding in; tenderness = hands stilling, a step closer, voice softening as the chin lifts. NEVER attach a neutral/idle gesture to an emotional line, and never write vague acting ("looks sad", "reacts", "shows emotion") — write the observable movement that produces that emotion on camera.
@@ -2069,21 +2072,47 @@ Compatible with: Google Veo 3.1, Seedance 2.0, Kling, Runway, Pika`;
 // header (style / continuity / negative) + one structured object per clip. The
 // self-contained flat `prompt` is ALSO kept per clip for text-mode users.
 
-/** The one comprehensive negative list, reused at project + clip level. */
-export const VEO_NEGATIVE_LIST = [
-  "morphing, warping, teleporting, duplicated character or object, extra people, extra or fused fingers, malformed hands, missing limbs, identity drift or unmotivated wardrobe drift, left-right seat swap, unexplained sitting/standing posture change, camera-axis flip, objects passing through solids, impossible physics, blocked doorway or walkable path, barrier in the wrong zone, camera or person beyond a railing or inside a wall, jitter, jump cut, overlapping or repeated voices, wrong-speaker lip sync, listener lip movement, lip movement during voiceover, on-screen text, captions, labels, HUD, watermark, plastic or CGI surfaces",
-  HUMAN_FACE_REALISM_NEGATIVE,
-].join(", ");
+/**
+ * Full failure blacklist from the stable pre-18/07 Veo contract. Keep this
+ * COMPLETE: compacting it silently removed independent guards that Veo does not
+ * infer from broader phrases (listener lip movement, duplicate hands, HUD text,
+ * cross-gender voice swap). Each clause below fixes an observed video defect —
+ * do not "tidy" this list into shorter prose.
+ */
+const VEO_SHARED_FAILURE_NEGATIVE =
+  "resembling a real or famous person, celebrity likeness, public-figure lookalike, real identifiable individual, morphing, warping, teleporting, floating or levitating objects, duplicated or doubled objects, extra or fused fingers, malformed or mutated hands, third hand, extra pair of hands, disembodied hand entering the frame, more hands than the people present, extra or missing limbs, limbs bending or passing through objects, the face changing, identity drift, age shifting, unmotivated change of hair or wardrobe or accessories, warped or altered label or logo text, brand-colour change, extra people, the same person or character duplicated or appearing twice in one frame, a second copy of a named character in the background or reflection, objects passing through solid surfaces, deformed food or liquid, melting, jittery or stuttering motion, mid-clip jump cuts, " +
+  // ── Seat / placement (chair teleport, side swap) ──
+  "left-right seat swap, character side swap, unexplained sitting/standing posture change, a seated character becoming standing with no visible stand-up, a character changing chair without walking there, camera-axis flip, crossing the 180-degree line so screen direction reverses, " +
+  // ── Door operation (self-opening doors, walking through closed doors) ──
+  "a door opening or closing by itself, a door swinging with no hand touching it, an unattended door moving, a person passing through a closed or unopened door, a body clipping through a door leaf or door frame, a pull door opened by pushing, a push door opened by pulling, a hand passing through the handle instead of gripping it, a door hinged on the wrong side, a door changing hinge side or swing direction mid-shot, a door leaf sweeping through a wall, furniture or a person, a doorway that moves or resizes, " +
+  // ── Carried objects (hand in one place, bag in another) ──
+  "a carried bag, strap, handle or prop detaching from the hand holding it, a bag floating beside the body instead of hanging from the grip, a held object drifting away from the hand, a held object swapping hands with no visible transfer, a strap or handle passing through an arm, shoulder or torso, a carried object changing size, colour or type mid-shot, an object appearing in a hand without a visible reach and grip, " +
+  // ── Background stability (mid-shot flicker / set swap) ──
+  "the background changing, flickering, morphing or re-rendering mid-shot, the set swapping behind the characters, a different room or street appearing behind a character mid-shot, furniture, windows or doorways appearing, disappearing or sliding between frames, walls changing colour or material mid-shot, a lighting, exposure or colour-temperature jump mid-shot, the time of day or weather changing inside one shot, " +
+  // ── Audio / speaker identity (voices changing randomly) ──
+  "both characters talking at once, overlapping or simultaneous voices, doubled voice, chorus, echo, a spoken line repeated or duplicated, listener lip movement, lip movement during voiceover, narrator voice coming from a visible character's mouth, wrong-speaker lip sync, swapped voices, male voice for a female speaker, female voice for a male speaker, cross-gender voice swap, a character's voice changing between clips, changed speaker age, changed speaker timbre, changed base pitch, changed speaking rate, Northern-to-Southern accent drift, Northern-to-Central accent drift, inferring the speaker from character order or camera framing, ad-lib speech, " +
+  // ── On-screen text ──
+  "speech bubble, on-screen text, captions, subtitles, burned-in dialogue text, title cards, karaoke or lyric text, translation text, camera or lens spec overlay, technical readout or HUD, info card in a corner, floating character name tag, a character name or age rendered as a label, character info card overlaid on the footage, colour-temperature or Kelvin label, exposure or Kelvin or lux or timecode text, any readable letters numbers or typography anywhere in the frame, watermark, channel logo";
 
-const VEO_REFERENCE_CHARACTER_NEGATIVE_LIST = [
-  "morphing, teleporting, duplicated character, extra people, malformed hands, left-right seat swap, unexplained sitting/standing posture change, camera-axis flip, objects crossing solids, impossible physics, jitter, jump cuts",
-  "overlapping or repeated voices, wrong-speaker lip sync, listener lip movement, lip movement during voiceover",
-  "on-screen text, captions, labels, HUD, watermark",
-  REFERENCE_CHARACTER_ANTI_PLASTIC,
-].join(", ");
+/** The one comprehensive negative list, reused at project + clip level. */
+export const VEO_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${HUMAN_FACE_REALISM_NEGATIVE}, plastic or CGI surfaces, plastic wig hair, painted eyebrows or eyelashes`;
+
+/** Same failure guards, minus the generated-face prose (an uploaded reference
+ * character's appearance must never be described, only guarded). */
+const VEO_REFERENCE_CHARACTER_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${REFERENCE_CHARACTER_ANTI_PLASTIC}`;
 
 export const CAMERA_SPEECH_INDEPENDENCE_RULE =
-  "Camera may frame the speaker, listener or both and never assigns speech; during each dialogue window only the named speaker's voice and lips move, every other visible mouth stays closed, and an off-screen speaker continues in their own voice with no visible mouth moving.";
+  "Camera subject and dialogue owner are independent: framing a listener never transfers the line to that listener. During each dialogue window only the named speaker's voice, lips and jaw move; every other visible mouth stays naturally closed, and an off-screen or out-of-focus speaker continues from their own physical position in their own voice.";
+
+/**
+ * Per-clip voice contract. Veo resolves a short dialogue row far more reliably
+ * when the speaker's full voice fingerprint is LOCAL to that row, so the JSON
+ * repeats voice_personality on every row and this note binds the three speaker
+ * fields together. Without it Veo re-casts the voice from whichever face the
+ * camera happens to hold — the "voices change randomly" defect.
+ */
+const VEO_LIP_SYNC_DIRECTOR_NOTE =
+  "HARD VOICE BINDING: resolve every line locally from that row's dialogue.speaker_id + dialogue.speaker_name + verbatim dialogue.voice_personality; these three fields are inseparable and override character order, camera subject, visible face and reference image. Keep the same named speaker's gender, apparent age, accent, timbre, resonance, base-pitch range and speaking rate identical in EVERY clip of the video. DIALOGUE OWNERSHIP: only that named speaker produces voice, lip and jaw movement during the row's start_sec/end_sec; every listener stays silent with lips naturally closed and reacts only through eyes, brows, breathing and posture. Each line is spoken exactly once. VOICEOVER is fully off-screen and moves no visible mouth. Camera framing never transfers speech ownership; one voice at a time, no swap, overlap, echo, repetition, ad-lib or accent drift.";
 
 interface VeoJsonOptions {
   aspectRatio: string;
@@ -2500,9 +2529,11 @@ export function buildVeoJson(
         lighting: [scrub(sb?.lighting), env ? scrub(`${env.lighting.key_kelvin}K, ~${env.lighting.ambient_lux} lux`) : ""]
           .filter(Boolean)
           .join("; "),
-        persistence: opts.hasLocationRef
-          ? "Attached location image is the sole set authority; preserve its geometry, materials, furniture and light. spatial_topology cannot redesign it."
-          : "Preserve this location's geometry, fixed architecture, furniture and light; spatial_topology is authoritative.",
+        persistence:
+          (opts.hasLocationRef
+            ? "Attached location image is the sole set authority; preserve its geometry, materials, furniture and light. spatial_topology cannot redesign it. "
+            : "Preserve this location's geometry, fixed architecture, furniture and light; spatial_topology is authoritative. ") +
+          "HOLD THE SET: render this background once and keep it identical in every frame of the clip — walls, windows, doorways, furniture, street and skyline stay in the same position, colour, material and scale; nothing behind the action appears, vanishes, slides, flickers, re-renders or dissolves into another place; key light, exposure, colour temperature, time of day and weather stay constant from the first frame to the last. Only the characters in characters_in_scene and their named props move.",
       },
       ...(spatialTopology ? { spatial_topology: spatialTopology } : {}),
       camera: {
@@ -2520,7 +2551,9 @@ export function buildVeoJson(
           (segIndex > 0
             ? "Open exactly from continuity_from_previous; it wins over a conflicting start_state. "
             : "Open exactly from start_state. ") +
-          "Only visible ordered contact/action changes a person, prop, door or object; preserve seat/chair/standing mark, left-right/front-back relation, posture and every resulting state through end_state.",
+          "Only visible ordered contact/action changes a person, prop, door or object; preserve seat/chair/standing mark, left-right/front-back relation, posture and every resulting state through end_state. " +
+          "DOORS: no door, gate or lid moves until a named hand visibly grips it; the leaf then travels only the way its declared hinge/track allows (a pull door is pulled toward the person, who steps back to clear the arc; a push door is pushed away), the hinge side and threshold never change, and nobody crosses before it has visibly opened or passes through a closed leaf, glass or frame. " +
+          "CARRIED OBJECTS: every held bag, strap or prop stays attached to the exact hand or shoulder gripping it, swinging and settling with that limb — it never floats, detaches, lags behind, crosses through the body, or changes hands without a visible reach, grip and release.",
         staging: spatialTopology
           ? "Obey spatial_topology exactly: fixed architecture stays fixed, openings and walkable_path stay clear, barriers stay on their declared perimeter, seat/standing marks and left-right relations stay locked, and every zone change follows the connector visibly."
           : "Use physically possible blocking and eye-lines from background_lock.setting; preserve each character's starting chair/standing mark and left-right relation unless the motion explicitly changes it.",
@@ -2537,13 +2570,13 @@ export function buildVeoJson(
       lip_sync_director_note:
         dialogue.length === 0
           ? "No dialogue; all visible mouths remain naturally closed."
-          : `Dialogue start_sec/end_sec is the only clock. ${CAMERA_SPEECH_INDEPENDENCE_RULE}`,
+          : `Dialogue start_sec/end_sec is the only clock. ${VEO_LIP_SYNC_DIRECTOR_NOTE} ${CAMERA_SPEECH_INDEPENDENCE_RULE}`,
       output_rules: {
         frame: "one clean full-screen continuous shot; never render a storyboard sheet, grid, panel, reference strip or document",
         on_screen_text: "ZERO — no letters, words, names, ages, numbers, labels, logos, captions, subtitles, badges, cards, HUD or technical overlays",
-        audio: "Use each dialogue entry's voice_personality consistently; one clean native voice at a time, Standard Northern Vietnamese by default unless the user chose another accent; no overlap, repetition, echo or ad-lib.",
+        audio: "Each dialogue row's voice_personality is that speaker's fixed voice for the WHOLE video — same gender, age, accent, timbre and pitch range in every clip. Never re-cast, brighten, deepen or re-age a voice between clips, and never let the camera subject decide who speaks. One clean native voice at a time, Standard Northern Vietnamese by default unless the user chose another accent; no overlap, repetition, echo or ad-lib.",
         wardrobe_continuity:
-          "Use the wardrobe established once in character_lock or the uploaded reference. Never change it unless the approved story visibly performs or explicitly declares bathing, rain/water or another necessary clothing transition; a declared wardrobe_state then persists.",
+          "Use the wardrobe established once in character_lock or the uploaded reference. EVERY garment slot is locked for the whole video — same top, same bottom, same outer layer, same footwear, same colour, pattern, fabric and fit, same accessories (glasses, watch, jewellery, bag), same hairstyle — identical in every clip and identical from the first to the last frame within a clip. Do not re-imagine, re-cut, re-colour, smarten up or swap any garment between clips. Never change it unless the approved story visibly performs or explicitly declares bathing, rain/water or another necessary clothing transition; a declared wardrobe_state then persists into every later clip until another motivated change.",
         reference_priority: hasReferencedVisibleCharacter
           ? "Each attached named character image is the sole appearance authority for that exact character. Do not describe, infer, reinterpret, merge or swap appearance."
           : "uploaded character and location menu references are authoritative; never merge, omit or swap identities",

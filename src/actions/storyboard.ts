@@ -38,6 +38,15 @@ import {
   wardrobeStateThrough,
 } from "@/lib/wardrobe-continuity";
 import {
+  PLAN_GENERATION_BUDGET_MS,
+  MIN_PROVIDER_FALLBACK_BUDGET_MS,
+  SCRIPT_STAGE_BUDGET_MS,
+  CONTEXT_STAGE_BUDGET_MS,
+  STORYBOARD_STAGE_RESERVE_MS,
+  stageDeadlineMs,
+  storyboardPrimaryDeadlineMs,
+} from "@/lib/generation-budget";
+import {
   buildVideoPromptText,
   buildSegmentVeoPrompt,
   genreAmbientAudio,
@@ -88,8 +97,8 @@ export interface StoryboardPlan {
 // for local JSON validation, prompt assembly and returning the result. Raised
 // from 230s so richer storyboards (3-5 characters → much larger character_locks
 // + spatial_layout) have room to finish before the safety cut-off.
-const PLAN_GENERATION_BUDGET_MS = 270_000;
-const MIN_PROVIDER_FALLBACK_BUDGET_MS = 20_000;
+// Budget constants + per-stage allocation live in a pure module so they can be
+// unit-tested (this file is "use server" and may only export async functions).
 
 /** Remove eyewear mentions from a description (used when a real face photo
  * is the source of truth, so invented "glasses" can't override it). */
@@ -1708,11 +1717,18 @@ export async function generateStoryboardPlan(
           (p) => p !== scriptProvider && p !== provider
         ),
       ];
+      // The whole chain shares ONE capped script budget — a stalled writer can
+      // no longer burn the storyboard stage's reserved time.
+      const scriptDeadlineMs = stageDeadlineMs(
+        generationDeadlineMs,
+        SCRIPT_STAGE_BUDGET_MS,
+        STORYBOARD_STAGE_RESERVE_MS
+      );
       for (const [chainIndex, sp] of scriptChain.entries()) {
-        if (generationDeadlineMs - Date.now() < MIN_PROVIDER_FALLBACK_BUDGET_MS) break;
+        if (scriptDeadlineMs - Date.now() < MIN_PROVIDER_FALLBACK_BUDGET_MS) break;
         try {
           sourceScript = await generateScript(enhanced, sp, {
-            deadlineMs: generationDeadlineMs,
+            deadlineMs: scriptDeadlineMs,
             maxAttempts: chainIndex === 0 ? 2 : 1,
           });
           if (chainIndex > 0) {
@@ -1744,8 +1760,18 @@ export async function generateStoryboardPlan(
       // Stage 1.5 is best-effort (a clean fallback exists), so give it just ONE
       // attempt: a 2nd 45s retry here was eating the shared deadline and
       // starving the storyboard stage into the "safe budget" timeout.
+      const contextDeadlineMs = stageDeadlineMs(
+        generationDeadlineMs,
+        CONTEXT_STAGE_BUDGET_MS,
+        STORYBOARD_STAGE_RESERVE_MS
+      );
+      // Best-effort stage: if its share is already gone, skip it outright
+      // rather than spending the storyboard stage's reserved time on it.
+      if (contextDeadlineMs - Date.now() < MIN_PROVIDER_FALLBACK_BUDGET_MS) {
+        throw new Error("bỏ qua để dành thời gian dựng storyboard");
+      }
       const resolvedContext = await analyzeVideoContext(stage2Input, provider, {
-        deadlineMs: generationDeadlineMs,
+        deadlineMs: contextDeadlineMs,
         maxAttempts: 1,
       });
       contextBoundInput = {
@@ -1766,10 +1792,15 @@ export async function generateStoryboardPlan(
       );
       breakdown = compileCookingStoryboard(contextBoundInput, compactPlan);
     } else {
+      // Hold back room for ONE cross-provider rescue — but only while enough
+      // time remains for both. When the budget is already tight, a rescue can
+      // no longer fit, so the primary attempt gets everything instead of being
+      // shortened into a guaranteed timeout.
+      const primaryDeadlineMs = storyboardPrimaryDeadlineMs(generationDeadlineMs);
       try {
         // Stage 2: main provider expands the approved script into storyboard JSON.
         breakdown = await generateStoryboardBreakdown(contextBoundInput, provider, {
-          deadlineMs: generationDeadlineMs,
+          deadlineMs: primaryDeadlineMs,
         });
       } catch (e) {
         // Stage 2 failed (usually a provider timeout). ALWAYS give it one

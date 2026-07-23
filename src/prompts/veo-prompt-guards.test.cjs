@@ -206,6 +206,45 @@ test("a scene with no mechanism emits no mechanism_motion", () => {
   if (layout) assert.equal(layout.mechanism_motion, undefined);
 });
 
+// The two tests below are carried over from codex's suite: they guard the
+// spatial-topology module that was ported wholesale, and do not depend on the
+// parts of codex's prompt contract that were deliberately not adopted.
+
+test("revolving-door scenes never inherit doorway or stair topology", () => {
+  const layout = resolveSpatialLayout({
+    layout: {
+      zone_order: "lower walkable area -> stair entry -> stair flight -> upper landing",
+      fixed_architecture: "wrong legacy stair template",
+      character_placement: "Minh and Lan stand by the mall entrance",
+      walkable_path: "wrong legacy stair route",
+      camera_zone: "mall lobby",
+    },
+    setting: "A modern mall entrance with one glass revolving door.",
+    motion: "Lan steps out of the revolving-door compartment while Minh waits on the lobby floor.",
+    characterNames: ["Minh", "Lan"],
+  });
+
+  assert.match(layout.zone_order, /revolving-door compartment/i);
+  assert.doesNotMatch(layout.zone_order, /stair/i);
+  assert.doesNotMatch(layout.fixed_architecture, /stair/i);
+  assert.match(layout.character_placement, /Lan starts inside/i);
+  assert.match(layout.walkable_path, /destination-side threshold exactly once/i);
+  assert.match(layout.mechanism_motion, /already occupied wedge/i);
+  assert.match(layout.mechanism_motion, /never reverse/i);
+});
+
+test("ordinary step verbs do not invent stairs", () => {
+  // "steps toward" is walking, not a staircase — the loose STAIRS regex used to
+  // hallucinate a stair topology onto a flat floor.
+  const layout = resolveSpatialLayout({
+    setting: "A flat mall lobby with a glass entrance.",
+    motion: "Minh steps toward Lan on the same-level polished floor.",
+    characterNames: ["Minh", "Lan"],
+  });
+
+  assert.equal(layout, null);
+});
+
 test("uploaded-reference characters keep the photo as the ONLY wardrobe authority", () => {
   const {
     stripUploadedCharacterAppearance,

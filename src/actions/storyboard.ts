@@ -46,6 +46,7 @@ import {
   stageDeadlineMs,
   storyboardPrimaryDeadlineMs,
 } from "@/lib/generation-budget";
+import { explainProviderError } from "@/lib/provider-errors";
 import {
   buildVideoPromptText,
   buildSegmentVeoPrompt,
@@ -1739,7 +1740,7 @@ export async function generateStoryboardPlan(
           break;
         } catch (e) {
           warnings.push(
-            `Không viết được kịch bản bằng ${sp}. (${e instanceof Error ? e.message : String(e)})`
+            `Không viết được kịch bản bằng ${sp}. (${explainProviderError(e)})`
           );
         }
       }
@@ -1780,7 +1781,7 @@ export async function generateStoryboardPlan(
       };
     } catch (e) {
       warnings.push(
-        `Không khóa được Context IR 10 tầng — tạm dùng luồng cũ. (${e instanceof Error ? e.message : String(e)})`
+        `Không khóa được Context IR 10 tầng — tạm dùng luồng cũ, storyboard vẫn dựng bình thường. (${explainProviderError(e)})`
       );
     }
 
@@ -1822,7 +1823,7 @@ export async function generateStoryboardPlan(
           );
         }
         warnings.push(
-          `${provider} không dựng được storyboard — đã tự chuyển sang ${fallbackProvider} dựng tiếp. (${e instanceof Error ? e.message : String(e)})`
+          `${provider} không dựng được storyboard — đã tự chuyển sang ${fallbackProvider} dựng tiếp. (${explainProviderError(e)})`
         );
         breakdown = await generateStoryboardBreakdown(contextBoundInput, fallbackProvider, {
           deadlineMs: generationDeadlineMs,

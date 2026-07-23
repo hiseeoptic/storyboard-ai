@@ -18,6 +18,7 @@ import {
   type ResolvedVideoContext,
 } from "@/lib/video-context";
 import { sceneIntentSchema } from "@/lib/scene-intent";
+import { isPermanentProviderError } from "@/lib/provider-errors";
 import type {
   AIProvider,
   StoryboardGenerationInput,
@@ -626,6 +627,8 @@ export async function analyzeVideoContext(
         `[AI Engine] Context analysis attempt ${attempt + 1}/${maxAttempts} failed:`,
         lastError.message
       );
+      // An account/permission failure will fail identically every time.
+      if (isPermanentProviderError(lastError)) break;
       if (attempt < maxAttempts - 1) await sleep(RETRY_DELAY_MS);
     }
   }
@@ -702,6 +705,9 @@ export async function generateScript(
         `[AI Engine] Script attempt ${attempt + 1}/${maxAttempts} failed:`,
         lastError.message
       );
+      // An account/permission failure will fail identically every time —
+      // hand over to the next writer in the chain immediately.
+      if (isPermanentProviderError(lastError)) break;
       if (attempt < maxAttempts - 1) {
         await sleep(RETRY_DELAY_MS * (attempt + 1));
       }
@@ -1026,6 +1032,9 @@ export async function generateStoryboardBreakdown(
         `[AI Engine] Attempt ${attempt + 1}/${maxAttempts} failed:`,
         lastError.message
       );
+      // An account/permission failure will fail identically every time — stop
+      // so the caller can switch to the rescue provider with its budget intact.
+      if (isPermanentProviderError(lastError)) break;
       if (attempt < maxAttempts - 1) {
         await sleep(RETRY_DELAY_MS * (attempt + 1));
       }

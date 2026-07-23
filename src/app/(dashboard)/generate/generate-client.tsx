@@ -45,6 +45,7 @@ import {
 } from "@/actions";
 import type { TopicCategory } from "@/services/topics";
 import { buildVeoJson, genreAmbientAudio } from "@/prompts";
+import { isPermanentProviderError, explainProviderError } from "@/lib/provider-errors";
 import { CharacterStudio } from "./character-studio";
 import { loadHandoff } from "@/lib/handoff";
 import type {
@@ -1643,9 +1644,12 @@ export function GenerateClient() {
         } catch (e) {
           lastErr = e instanceof Error ? e.message : "network error";
         }
+        // A denied key or a zero quota fails identically every time — retrying
+        // it just burned 12s of backoff before showing the same error.
+        if (isPermanentProviderError(lastErr)) break;
         if (k < 2) await sleep(4000 * (k + 1));
       }
-      boardWarnings.push(`${label}: ${lastErr}`);
+      boardWarnings.push(`${label}: ${explainProviderError(lastErr)}`);
       errs[key] = lastErr;
       return null;
     };

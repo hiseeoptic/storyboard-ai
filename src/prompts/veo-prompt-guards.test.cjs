@@ -100,25 +100,34 @@ const buildClip = (segmentOverrides) =>
     dialogueLanguage: "Vietnamese",
   }).clips[0];
 
-test("per-clip flat `prompt` is kept for the extension/importer path", () => {
+test("the clip carries NO flat prompt paragraph", () => {
   const clip = buildClip();
-  // Removing this field broke bulk importers that consume one flat prompt.
-  assert.equal(Object.hasOwn(clip, "prompt"), true);
-  assert.ok(clip.prompt.length > 0);
+  // Verified against the 17/07-18/07 exports: their clips have no such field.
+  // A flattened paragraph re-states the character, style, voice and physics
+  // facts the structured fields already own, so Veo gets each fact twice in two
+  // wordings — and it alone was ~33% of the clip's size.
+  assert.equal(Object.hasOwn(clip, "prompt"), false);
+  // Nothing in the app reads clips[].prompt; the structured fields are the
+  // only contract.
+  assert.ok(clip.scene_action.motion.length > 0);
 });
 
-test("multi-beat camera notes collapse into ONE take, with no tag leakage", () => {
+test("camera.movement keeps the whole beat plan, joined by ->", () => {
   const clip = buildClip();
   const movement = clip.camera.movement;
 
-  // The defect: "[WIDE] ...; [CLOSE] ...; [OTS] ..." emitted raw reads as three
-  // separate shots, producing the mid-shot flicker / background re-render.
-  assert.doesNotMatch(movement, /\[(?:WIDE|CLOSE|OTS|EYE|LOW|HIGH|OVH|POV|SIDE|DUTCH)\]/i);
-  assert.match(movement, /ONE continuous/i);
-  assert.match(movement, /never a cut/i);
-  // First and last beat framings survive as one continuous reframe.
+  // The 17/07-18/07 shape: "[WIDE] ... -> [CLOSE] ... -> [OTS] ...".
+  // An attempt to collapse this into one generated sentence dropped the middle
+  // beats and leaked beat words ("framing of ...") into the prose.
+  assert.match(movement, / -> /);
   assert.match(movement, /the whole dining table/i);
   assert.match(movement, /over Minh's shoulder onto Lan/i);
+  // No invented narration, and the "one take" wording is not repeated here —
+  // it belongs to scene_action.continuity_lock.
+  assert.doesNotMatch(movement, /it begins on|settles on/i);
+  assert.doesNotMatch(movement, /ONE CONTINUOUS TAKE/);
+  // No mangled punctuation from string surgery.
+  assert.doesNotMatch(movement, /\.\s*,|,\s*\./);
 });
 
 test("every dialogue row carries a hard voice binding to its own speaker", () => {
@@ -138,25 +147,38 @@ test("negative list guards the observed physical defects", () => {
 
   const required = [
     // doors opening by themselves / walking through closed doors
-    /a door opening or closing by itself/i,
+    /a door opening or swinging with no hand on it/i,
     /a pull door opened by pushing/i,
-    /passing through a closed or unopened door/i,
+    /crossing a door before it visibly opens/i,
     // hand here, bag there
-    /detaching from the hand holding it/i,
-    /a bag floating beside the body/i,
+    /detaching from the hand or floating beside the body/i,
     // mid-shot background swap
-    /background changing, flickering, morphing or re-rendering mid-shot/i,
-    /lighting, exposure or colour-temperature jump mid-shot/i,
+    /background changing, flickering or re-rendering mid-shot/i,
+    /lighting or colour-temperature jump mid-shot/i,
     // chair teleport
     /left-right seat swap/i,
-    /a character changing chair without walking there/i,
+    /unexplained seated-standing change/i,
     // voices changing randomly
     /a character's voice changing between clips/i,
     /cross-gender voice swap/i,
+    // the proven 17/18 guards must still be present
+    /listener lip movement/i,
+    /any readable letters numbers or typography anywhere in the frame/i,
   ];
   for (const pattern of required) {
     assert.match(neg, pattern);
   }
+});
+
+test("negative_prompt stays near the proven 17/18 length", () => {
+  const neg = buildClip().negative_prompt;
+  // The known-good exports carried ~1,663 characters. A later "restore the full
+  // list" pass pushed this past 4,000 by spelling out variations Veo already
+  // infers, diluting every individual guard. Keep it lean.
+  assert.ok(
+    neg.length < 2600,
+    `negative_prompt is ${neg.length} chars — the 17/18 baseline was ~1,663; it is bloating again`
+  );
 });
 
 test("scene_action locks door operation and carried objects", () => {

@@ -2079,33 +2079,28 @@ Compatible with: Google Veo 3.1, Seedance 2.0, Kling, Runway, Pika`;
 // self-contained flat `prompt` is ALSO kept per clip for text-mode users.
 
 /**
- * Full failure blacklist from the stable pre-18/07 Veo contract. Keep this
- * COMPLETE: compacting it silently removed independent guards that Veo does not
- * infer from broader phrases (listener lip movement, duplicate hands, HUD text,
- * cross-gender voice swap). Each clause below fixes an observed video defect —
- * do not "tidy" this list into shorter prose.
+ * The 17/07-18/07 blacklist, restored VERBATIM from the exports that produced
+ * the known-good videos. Do not re-expand it: a later "restore the full list"
+ * pass more than doubled it (1.7k -> 4k characters per clip) by spelling out
+ * variations Veo already infers, which diluted every individual guard and was a
+ * large part of the bloated, jumbled clip object.
  */
 const VEO_SHARED_FAILURE_NEGATIVE =
-  "resembling a real or famous person, celebrity likeness, public-figure lookalike, real identifiable individual, morphing, warping, teleporting, floating or levitating objects, duplicated or doubled objects, extra or fused fingers, malformed or mutated hands, third hand, extra pair of hands, disembodied hand entering the frame, more hands than the people present, extra or missing limbs, limbs bending or passing through objects, the face changing, identity drift, age shifting, unmotivated change of hair or wardrobe or accessories, warped or altered label or logo text, brand-colour change, extra people, the same person or character duplicated or appearing twice in one frame, a second copy of a named character in the background or reflection, objects passing through solid surfaces, deformed food or liquid, melting, jittery or stuttering motion, mid-clip jump cuts, " +
-  // ── Seat / placement (chair teleport, side swap) ──
-  "left-right seat swap, character side swap, unexplained sitting/standing posture change, a seated character becoming standing with no visible stand-up, a character changing chair without walking there, camera-axis flip, crossing the 180-degree line so screen direction reverses, " +
-  // ── Door operation (self-opening doors, walking through closed doors) ──
-  "a door opening or closing by itself, a door swinging with no hand touching it, an unattended door moving, a person passing through a closed or unopened door, a body clipping through a door leaf or door frame, a pull door opened by pushing, a push door opened by pulling, a hand passing through the handle instead of gripping it, a door hinged on the wrong side, a door changing hinge side or swing direction mid-shot, a door leaf sweeping through a wall, furniture or a person, a doorway that moves or resizes, " +
-  // ── Carried objects (hand in one place, bag in another) ──
-  "a carried bag, strap, handle or prop detaching from the hand holding it, a bag floating beside the body instead of hanging from the grip, a held object drifting away from the hand, a held object swapping hands with no visible transfer, a strap or handle passing through an arm, shoulder or torso, a carried object changing size, colour or type mid-shot, an object appearing in a hand without a visible reach and grip, " +
-  // ── Background stability (mid-shot flicker / set swap) ──
-  "the background changing, flickering, morphing or re-rendering mid-shot, the set swapping behind the characters, a different room or street appearing behind a character mid-shot, furniture, windows or doorways appearing, disappearing or sliding between frames, walls changing colour or material mid-shot, a lighting, exposure or colour-temperature jump mid-shot, the time of day or weather changing inside one shot, " +
-  // ── Audio / speaker identity (voices changing randomly) ──
-  "both characters talking at once, overlapping or simultaneous voices, doubled voice, chorus, echo, a spoken line repeated or duplicated, listener lip movement, lip movement during voiceover, narrator voice coming from a visible character's mouth, wrong-speaker lip sync, swapped voices, male voice for a female speaker, female voice for a male speaker, cross-gender voice swap, a character's voice changing between clips, changed speaker age, changed speaker timbre, changed base pitch, changed speaking rate, Northern-to-Southern accent drift, Northern-to-Central accent drift, inferring the speaker from character order or camera framing, ad-lib speech, " +
-  // ── On-screen text ──
-  "speech bubble, on-screen text, captions, subtitles, burned-in dialogue text, title cards, karaoke or lyric text, translation text, camera or lens spec overlay, technical readout or HUD, info card in a corner, floating character name tag, a character name or age rendered as a label, character info card overlaid on the footage, colour-temperature or Kelvin label, exposure or Kelvin or lux or timecode text, any readable letters numbers or typography anywhere in the frame, watermark, channel logo";
+  "resembling a real or famous person, celebrity likeness, public-figure lookalike, real identifiable individual, morphing, warping, teleporting, floating or levitating objects, duplicated or doubled objects, extra or fused fingers, malformed or mutated hands, third hand, extra pair of hands, disembodied hand entering the frame, more hands than the people present, extra or missing limbs, limbs bending or passing through objects, the face changing, identity drift, age shifting, changed hair/wardrobe/accessories, warped or altered label/logo text, brand-colour change, extra people, the same person or character duplicated or appearing twice in one frame, a second copy of a named character in the background or reflection, objects passing through solid surfaces, deformed food or liquid, melting, jittery or stuttering motion, mid-clip jump cuts, both characters talking at once, overlapping or simultaneous voices, doubled voice, chorus, echo, a spoken line repeated or duplicated, listener lip movement, lip movement during voiceover, narrator voice coming from a visible character's mouth, wrong speaker lip sync, swapped voices, ad-lib speech, speech bubble, on-screen text, captions, subtitles, burned-in dialogue text, title cards, karaoke or lyric text, translation text, camera or lens spec overlay, technical readout or HUD, info card in a corner, floating character name tag, a character's name or age rendered as a label, character info card overlaid on the footage, colour-temperature or Kelvin label, exposure/Kelvin/lux/timecode text, any readable letters numbers or typography anywhere in the frame, watermark, channel logo";
+
+/**
+ * ONE compact clause per defect class reported after 18/07. Deliberately terse —
+ * these are additions to a proven list, not a second list.
+ */
+const VEO_REPORTED_DEFECT_NEGATIVE =
+  "left-right seat swap, unexplained seated-standing change, a door opening or swinging with no hand on it, a person crossing a door before it visibly opens, a body or bag passing through a door leaf or frame, a pull door opened by pushing, a carried bag or strap detaching from the hand or floating beside the body, a held object changing hands with no visible transfer, the background changing, flickering or re-rendering mid-shot, furniture or walls appearing, vanishing or sliding between frames, a lighting or colour-temperature jump mid-shot, a character's voice changing between clips, cross-gender voice swap, accent or timbre drift";
 
 /** The one comprehensive negative list, reused at project + clip level. */
-export const VEO_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${HUMAN_FACE_REALISM_NEGATIVE}, plastic or CGI surfaces, plastic wig hair, painted eyebrows or eyelashes`;
+export const VEO_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${VEO_REPORTED_DEFECT_NEGATIVE}, plastic or CGI skin`;
 
 /** Same failure guards, minus the generated-face prose (an uploaded reference
  * character's appearance must never be described, only guarded). */
-const VEO_REFERENCE_CHARACTER_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${REFERENCE_CHARACTER_ANTI_PLASTIC}`;
+const VEO_REFERENCE_CHARACTER_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${VEO_REPORTED_DEFECT_NEGATIVE}, ${REFERENCE_CHARACTER_ANTI_PLASTIC}`;
 
 /** Focus is a VISUAL choice; it must never be read as "this face is speaking". */
 const VEO_CAMERA_FOCUS_RULE =
@@ -2308,27 +2303,21 @@ export function buildVeoJson(
         : firstTag === "HIGH" || firstTag === "OVH" || /high angle|overhead|top-down/.test(lower)
           ? "high angle"
           : "eye level";
-    // CRITICAL: the per-beat notes are progressive framings of ONE continuous
-    // take. Emitting them raw as "[WIDE] ...; [CLOSE] ...; [OTS] ..." reads to
-    // Veo as three separate shots, which is what made the picture jump/flicker
-    // and re-render the background mid-clip. Collapse them into one explicitly
-    // continuous composition, and never leak the shorthand tags into the video
-    // prompt (they can otherwise be burned in as on-screen text).
+    // Keep the director's beat plan INTACT, joined with " -> ", exactly as the
+    // known-good 17/07-18/07 exports did. An earlier attempt collapsed the
+    // beats into one generated sentence ("it begins on ... and settles on ...")
+    // to fight mid-clip flicker; measured against those exports that was a
+    // regression — it dropped the middle beats, leaked beat words ("framing
+    // of ...", "angle shot of ...") into the prose and produced broken
+    // punctuation. The beats are progressive framings of one take, and the
+    // continuity wording that says so lives once on scene_action, not here.
     const clauses = cameraText
-      .split(/\s*;\s*/)
-      .map((clause) =>
-        clause
-          .replace(CAMERA_TAG, "")
-          .replace(/\s*\(that'?s where the camera is\)/gi, "")
-          .trim()
-      )
+      .split(/\s*(?:;|->)\s*/)
+      .map((clause) => clause.replace(/\s*\(that'?s where the camera is\)/gi, "").trim())
       .filter(Boolean);
-    const scaleWord = framing === "WS" ? "wide" : framing === "CU" || framing === "ECU" ? "close" : "medium";
     const movement = /static|locked/.test(lower)
       ? "static"
-      : clauses.length > 1
-        ? `ONE continuous ${scaleWord} composition: it begins on ${clauses[0]}, follows the same unbroken action, and settles on ${clauses[clauses.length - 1]} — a single smooth reframe within one take, never a cut and never a shot-scale jump`
-        : clauses[0] || "single slow, smooth camera move";
+      : clauses.join(" -> ") || "single slow, smooth camera move";
     return { framing, angle, movement };
   };
 
@@ -2520,47 +2509,14 @@ export function buildVeoJson(
     const ambience = [env?.sound_bed, opts.ambientAudio].filter(
       (value): value is string => !!value
     );
-    const flatCharacterDescription = visibleLocks
-      .map((lock) =>
-        hasUploadedReference(lock.name)
-          ? `${lock.name}. ${REFERENCE_CHARACTER_APPEARANCE_LOCK}${lock.costume?.trim() ? ` Current scripted wardrobe state: ${noHex(lock.costume)}.` : ""} Avoid only: ${REFERENCE_CHARACTER_ANTI_PLASTIC}.`
-          : `${lock.name}, ${noHex(lock.gender_age)}, ${noHex(lock.build)}, ${noHex(lock.hair)}, ${noHex(lock.costume)}`
-      )
-      .join(" | ");
-    const flatPrompt = buildSegmentVeoPrompt({
-      characterDescription: flatCharacterDescription,
-      realityProfile: breakdown.context_ir?.reality_profile,
-      sceneIntent: seg.scene_intent,
-      worldContext: breakdown.world_context,
-      setting: cleanReferenceText(seg.first_frame_prompt),
-      spatialLayout: seg.spatial_layout,
-      productDescription: breakdown.product_dna,
-      sceneBible: sb,
-      colorPalette: breakdown.style_guide?.color_palette ?? [],
-      motionPrompt: cleanContinuousText(seg.motion_prompt),
-      dialogue: canonicalTurns[0]?.text ?? seg.dialogue,
-      dialogueLanguage: lang,
-      speaker: canonicalTurns[0]?.speaker ?? seg.speaker,
-      dialogueTurns: canonicalTurns,
-      characterVoices: Object.fromEntries(
-        visibleLocks.map((lock) => [
-          lock.name,
-          oneLine(lock.voice) || defaultVoiceFor(lock.gender, lock.is_child),
-        ])
-      ),
-      characterNames: locks.map((lock) => lock.name),
-      charactersInScene: onScreen,
-      speakerVoice: speaker ? oneLine(locks.find((lock) => lock.name.toLowerCase() === speaker.toLowerCase())?.voice) : undefined,
-      ambientAudio: opts.ambientAudio,
-      environmentRef: seg.environment_ref,
-      hasLocationRef: opts.hasLocationRef,
-      hasCharacterReference: hasReferencedVisibleCharacter,
-    });
     return {
-      // Single convenience field for bulk extensions/importers. Do not emit a
-      // second duplicate alias: duplicated prompt prose was part of the 19/07
-      // bloat regression. Structured fields remain canonical.
-      prompt: flatPrompt,
+      // NO flat `prompt` field here — verified against the 17/07-18/07 exports,
+      // which contain none. Prepending a flattened paragraph re-states the
+      // character, style, voice and physics laws that the structured fields
+      // below already own, so Veo receives every fact twice in two different
+      // wordings and the two copies fight each other. It also made the clip
+      // ~33% larger on its own. The structured fields are the only contract;
+      // nothing in the app or the export path reads clips[].prompt.
       scene_id: String(seg.segment_number),
       duration_sec: String(clipSeconds),
       visual_style: [
@@ -2595,7 +2551,10 @@ export function buildVeoJson(
       camera: {
         framing: camera.framing,
         angle: camera.angle,
-        movement: `ONE CONTINUOUS TAKE, no cuts or timed camera schedule. ${scrub(camera.movement)}. One calm motivated hold or smooth reframe; start and end settled.`,
+        // The beat plan only. The "one continuous take, no cuts" wording used to
+        // be wrapped around it AND repeated twice in the same string; it is
+        // stated once in scene_action.continuity_lock instead.
+        movement: scrub(camera.movement),
         focus: VEO_CAMERA_FOCUS_RULE,
       },
       scene_action: {
@@ -2630,16 +2589,21 @@ export function buildVeoJson(
       output_rules: {
         frame: "one clean full-screen continuous shot; never render a storyboard sheet, grid, panel, reference strip or document",
         on_screen_text: "ZERO — no letters, words, names, ages, numbers, labels, logos, captions, subtitles, badges, cards, HUD or technical overlays",
-        audio: "Each dialogue row's voice_personality is that speaker's fixed voice for the WHOLE video — same gender, age, accent, timbre and pitch range in every clip. Never re-cast, brighten, deepen or re-age a voice between clips, and never let the camera subject decide who speaks. One clean native voice at a time, Standard Northern Vietnamese by default unless the user chose another accent; no overlap, repetition, echo or ad-lib.",
+        // Kept at the 17/07-18/07 length. The voice fingerprint already lives on
+        // every dialogue row and in lip_sync_director_note; restating it here in
+        // full was pure duplication.
+        audio: "Dialogue and voiceover are spoken audio only. Exactly ONE voice at a time following the dialogue start_sec/end_sec windows; each speaker keeps the same voice in every clip; silent gaps between lines are mandatory; no simultaneous voices, chorus, echo, duplicated or repeated line, and no extra ad-lib speech.",
         wardrobe_continuity:
-          "Use the wardrobe established once in character_lock or the uploaded reference. EVERY garment slot is locked for the whole video — same top, same bottom, same outer layer, same footwear, same colour, pattern, fabric and fit, same accessories (glasses, watch, jewellery, bag), same hairstyle — identical in every clip and identical from the first to the last frame within a clip. Do not re-imagine, re-cut, re-colour, smarten up or swap any garment between clips. Never change it unless the approved story visibly performs or explicitly declares bathing, rain/water or another necessary clothing transition; a declared wardrobe_state then persists into every later clip until another motivated change.",
+          "Keep the wardrobe established once in character_lock or the uploaded reference — every garment, colour, fabric and accessory identical in every clip. Change it only for a visibly motivated transition (bathing, rain/water, an explicit change of clothes); a declared wardrobe_state then persists.",
         reference_priority: hasReferencedVisibleCharacter
           ? "Each attached named character image is the sole appearance authority for that exact character. Do not describe, infer, reinterpret, merge or swap appearance."
           : "uploaded character and location menu references are authoritative; never merge, omit or swap identities",
       },
       negative_prompt: [
         hasReferencedVisibleCharacter ? VEO_REFERENCE_CHARACTER_NEGATIVE_LIST : VEO_NEGATIVE_LIST,
-        "opening state contradicting continuity_from_previous, unexplained pose/state change, unexplained seated-standing change, left-right seat swap, character side swap, camera crossing axis and flipping screen direction, extra background person, blocked connector, migrated railing/barrier, impossible camera or character position",
+        // Only what is NOT already in the shared lists above — the seat/axis
+        // terms used to be repeated here as well.
+        "opening state contradicting continuity_from_previous, extra background person, blocked connector, migrated railing/barrier, impossible camera or character position",
       ]
         .filter(Boolean)
         .join(", "),

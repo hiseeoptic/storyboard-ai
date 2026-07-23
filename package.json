@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\"",
+    "test": "node --experimental-strip-types --test \"src/**/*.test.ts\" \"src/**/*.test.cjs\"",
+    "test:prompts": "node --test src/prompts/veo-prompt-guards.test.cjs",
     "test:timeline": "node --experimental-strip-types --test src/lib/timeline-contract.test.ts",
     "test:budget": "node --experimental-strip-types --test src/lib/generation-budget.test.ts"
   },

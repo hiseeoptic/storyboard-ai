@@ -459,6 +459,8 @@ export interface SpatialLayout {
   walkable_path: string;
   /** A real supported camera position and valid line of sight. */
   camera_zone: string;
+  /** Optional kinematic law for moving architecture such as a revolving door. */
+  mechanism_motion?: string;
 }
 
 /**

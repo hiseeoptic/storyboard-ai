@@ -125,6 +125,10 @@ const SEGMENT_ITEM_SCHEMA: Record<string, unknown> = {
         character_placement: STRING_SCHEMA,
         walkable_path: STRING_SCHEMA,
         camera_zone: STRING_SCHEMA,
+        // Optional (NOT in `required`): kinematic law for moving architecture
+        // such as a revolving door. Must be declared here or Gemini's structured
+        // output can never emit it, no matter what the prompt asks for.
+        mechanism_motion: STRING_SCHEMA,
       },
       required: [
         "zone_order",

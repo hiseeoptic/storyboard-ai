@@ -732,6 +732,7 @@ STAGING & BLOCKING (a real director's coverage — this is what separates a watc
 - 🚶 OCCUPANCY & ROUTE: every person has one start zone and one facing direction. If motion changes zones, name the connector and show the continuous crossing; otherwise the person stays in the declared zone. Nobody stands through a wall/threshold, beyond a railing, over a void, or on a non-load-bearing surface. The camera follows the same rules and cannot be inside a wall or beyond a safety barrier.
 - 🔒 TOPOLOGY FREEZE: fixed architecture and zone order remain unchanged for the whole clip and across chained clips in the same location. Doors may open/close only through a visible hinged/sliding action, but the wall opening and threshold never migrate. If an uploaded location photo exists, derive this topology from that real photo and do not redesign it.
 - 🚪 DOOR OPERATION (write it or the door opens by itself): whenever a door is used, first fix its type and geometry ONCE — hinged or sliding, which side the hinge/track is on, and which way the leaf travels — then keep that identical in every clip. A door NEVER moves on its own: the motion_prompt must show the named hand reach the handle, grip it, and only THEN the leaf moving. Write the direction honestly — a PULL door is pulled toward the character, so they step back to clear the swinging arc before walking through; a PUSH door is pushed away and they follow it through. Never let a character walk through a doorway before the leaf has visibly opened, never let a body, arm or carried bag pass through a closed leaf, its glass or its frame, and never have someone push a pull door open. If the script does not need the door operated, leave it in a fixed declared state (already open / already closed) for the whole clip.
+- 🔄 REVOLVING-DOOR KINEMATICS (only when the script actually names one): first classify this clip as ENTER, EXIT, PASS-THROUGH, HOLD-INSIDE or BACKGROUND-ONLY. ENTER starts before the entrance gap; EXIT starts already inside the same occupied wedge and crosses the destination threshold exactly once; HOLD-INSIDE never exits; BACKGROUND-ONLY has no occupied wedge at all. Establish ONE rotation direction and keep it for the whole clip. A crossing person — and every bag they carry — stays between the SAME two rigid radial glass wings and steps out only when that opening physically aligns with the destination floor. Never cross the glass or the centre shaft, change compartments, reverse, repeat an entry/exit, or describe someone as already outside before their scripted exit. Put the operation ONCE in spatial_layout.mechanism_motion; every other field obeys it without paraphrasing it.
 - 🎒 CARRIED-OBJECT BINDING (this is what makes "the hand is here, the bag is there"): every carried bag, strap, box, tool or handbag is attached to ONE named hand or shoulder, and the first_frame_prompt says which. It hangs from that grip, swings and settles with that limb under gravity, and stays the same size, colour and weight all clip. It never floats beside the body, drifts, lags behind the character, or passes through an arm, hip or torso. To move it to the other hand, write the visible transfer (reach → grip → release); otherwise it stays exactly where it was declared.
 - 🖼️ BACKGROUND HOLDS STILL (this is what stops the mid-shot flicker / set swap): the set is established once in first_frame_prompt and then does NOT change for the rest of the clip. Walls, windows, doorways, furniture, street and skyline keep the same position, colour, material and scale in every frame; nothing behind the action appears, disappears, slides, re-renders or dissolves into a different place; and the key light, exposure, colour temperature, time of day and weather stay constant from second 0 to the end. Only the named characters and their declared props move. Never write a background change, a "meanwhile" cutaway or a lighting shift inside one clip — if the story needs a different place or a different light, that is the NEXT segment.
 - 🎭 MOTIVATED STAGING VARIATION ONLY: avoid five visually identical clips, but never violate continuity to create variety. Between clips, change framing, gesture, eyeline, hand business or camera distance first. Change a character's position, seated/standing posture or spatial relationship ONLY when the approved script or previous continuity_note provides a visible movement reason; otherwise preserve the same seat/side/standing mark exactly.
@@ -1053,7 +1054,8 @@ ${beatExample}
         "fixed_architecture": "string — immutable walls/openings/threshold/boundary; what may NEVER cross or block a connector",
         "character_placement": "string — each character: zone + anchor/chair/standing mark + seated/standing posture + approx distance + facing + left-right/front-back relation; nobody straddles architecture or stands beyond a boundary",
         "walkable_path": "string — continuous route; name the connector for any zone change; keep unobstructed",
-        "camera_zone": "string — one real camera zone + side/height + line of sight; never inside a wall or beyond a railing"
+        "camera_zone": "string — one real camera zone + side/height + line of sight; never inside a wall or beyond a railing",
+        "mechanism_motion": "optional string — moving architecture only (e.g. a revolving door): classify ENTER / EXIT / PASS-THROUGH / HOLD-INSIDE / BACKGROUND-ONLY, then one rotation direction + one physically consistent compartment state. Omit entirely when no mechanism is in the scene."
       },
       "wardrobe_state": [
         { "character": "exact character name", "outfit": "NEW current outfit, or REFERENCE_WARDROBE plus only its changed wet/damp condition", "outfit_materials": "only when a new garment needs real material", "hair": "only a story-caused wet/dry state" }
@@ -1858,6 +1860,10 @@ export function buildSegmentVeoPrompt(params: {
     setting: params.setting,
     motion: params.motionPrompt,
     characterNames: params.charactersInScene,
+    // Same entry/exit signals the structured export uses, so a mechanism
+    // (revolving door…) is classified identically in both prompt formats.
+    startState: params.sceneIntent?.entry_exit?.entry_state,
+    endState: params.sceneIntent?.entry_exit?.exit_state,
   });
   const spatialLock = resolvedSpatialLayout
     ? ` ${renderSpatialTopologyLock(resolvedSpatialLayout)}`
@@ -2101,6 +2107,10 @@ export const VEO_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${HUMAN_FACE_R
  * character's appearance must never be described, only guarded). */
 const VEO_REFERENCE_CHARACTER_NEGATIVE_LIST = `${VEO_SHARED_FAILURE_NEGATIVE}, ${REFERENCE_CHARACTER_ANTI_PLASTIC}`;
 
+/** Focus is a VISUAL choice; it must never be read as "this face is speaking". */
+const VEO_CAMERA_FOCUS_RULE =
+  "Natural cinematic depth of field; focus follows the explicitly assigned visual subject, NOT the active speaker. A speaker may remain off-camera or softly out of focus while the listener's silent reaction is sharp; framing never transfers dialogue or lip-sync to the visible subject.";
+
 export const CAMERA_SPEECH_INDEPENDENCE_RULE =
   "Camera subject and dialogue owner are independent: framing a listener never transfers the line to that listener. During each dialogue window only the named speaker's voice, lips and jaw move; every other visible mouth stays naturally closed, and an off-screen or out-of-focus speaker continues from their own physical position in their own voice.";
 
@@ -2268,25 +2278,57 @@ export function buildVeoJson(
       bottom: parts.slice(1).join(", ") || "Match the attached character reference",
     };
   };
+  // Beat camera notes use the shorthand legend ([EYE] [LOW] [HIGH] [OVH]
+  // [DUTCH] [OTS] [POV] [CLOSE] [SIDE] [WIDE]) and arrive joined with "; ".
+  const CAMERA_TAG =
+    /\[(?:EYE|LOW|HIGH|OVH|DUTCH|OTS|POV|CLOSE|SIDE|WIDE|MEDIUM|EXTREME_CLOSE)\]/gi;
   const cameraParts = (cameraText: string) => {
     const lower = cameraText.toLowerCase();
-    const framing = /extreme close|ecu/.test(lower)
-      ? "ECU"
-      : /close|\bcu\b/.test(lower)
-        ? "CU"
-        : /medium|\bms\b/.test(lower)
-          ? "MS"
-          : /wide|\bws\b|establish/.test(lower)
+    // Prefer the FIRST declared tag: it is the clip's established shot scale.
+    const firstTag = cameraText.match(CAMERA_TAG)?.[0]?.replace(/[[\]]/g, "").toUpperCase();
+    const framing =
+      firstTag === "EXTREME_CLOSE"
+        ? "ECU"
+        : firstTag === "CLOSE" || firstTag === "OTS"
+          ? "CU"
+          : firstTag === "WIDE"
             ? "WS"
-            : "MS";
-    const angle = /low angle|\blow\b/.test(lower)
-      ? "low angle"
-      : /high angle|overhead|top-down/.test(lower)
-        ? "high angle"
-        : "eye level";
+            : firstTag === "MEDIUM"
+              ? "MS"
+              : /extreme close|ecu/.test(lower)
+                ? "ECU"
+                : /close|\bcu\b/.test(lower)
+                  ? "CU"
+                  : /wide|\bws\b|establish/.test(lower)
+                    ? "WS"
+                    : "MS";
+    const angle =
+      firstTag === "LOW" || /low angle/.test(lower)
+        ? "low angle"
+        : firstTag === "HIGH" || firstTag === "OVH" || /high angle|overhead|top-down/.test(lower)
+          ? "high angle"
+          : "eye level";
+    // CRITICAL: the per-beat notes are progressive framings of ONE continuous
+    // take. Emitting them raw as "[WIDE] ...; [CLOSE] ...; [OTS] ..." reads to
+    // Veo as three separate shots, which is what made the picture jump/flicker
+    // and re-render the background mid-clip. Collapse them into one explicitly
+    // continuous composition, and never leak the shorthand tags into the video
+    // prompt (they can otherwise be burned in as on-screen text).
+    const clauses = cameraText
+      .split(/\s*;\s*/)
+      .map((clause) =>
+        clause
+          .replace(CAMERA_TAG, "")
+          .replace(/\s*\(that'?s where the camera is\)/gi, "")
+          .trim()
+      )
+      .filter(Boolean);
+    const scaleWord = framing === "WS" ? "wide" : framing === "CU" || framing === "ECU" ? "close" : "medium";
     const movement = /static|locked/.test(lower)
       ? "static"
-      : cameraText || "single slow, smooth camera move";
+      : clauses.length > 1
+        ? `ONE continuous ${scaleWord} composition: it begins on ${clauses[0]}, follows the same unbroken action, and settles on ${clauses[clauses.length - 1]} — a single smooth reframe within one take, never a cut and never a shot-scale jump`
+        : clauses[0] || "single slow, smooth camera move";
     return { framing, angle, movement };
   };
 
@@ -2319,11 +2361,27 @@ export function buildVeoJson(
     const exitState = scrub(cleanReferenceText(seg.scene_intent?.entry_exit?.exit_state)) || scrub(cleanReferenceText(seg.continuity_note));
     const mainAction =
       scrub(cleanContinuousText(seg.motion_prompt)) || scrub(cleanContinuousText(seg.scene_intent?.performance?.physical_behavior));
+    // CROSS-CLIP CONTINUITY: what the PREVIOUS clip actually ended on — this is
+    // what this clip must open from. The old code mislabelled this as the
+    // current clip's own continuity_note, so a clip could open in a state that
+    // contradicted the previous clip's ending (e.g. one character already
+    // seated / standing before the beat that moves them). Falls back to this
+    // clip's own note for the very first clip (no predecessor).
+    // Computed BEFORE the topology resolve so a mechanism (revolving door…) is
+    // classified from the real chained state, not just this clip's own prose.
+    const prevSeg = segIndex > 0 ? breakdown.segments[segIndex - 1] : null;
+    const prevExitState = prevSeg
+      ? scrub(cleanReferenceText(prevSeg.scene_intent?.entry_exit?.exit_state)) || scrub(cleanReferenceText(prevSeg.continuity_note))
+      : "";
+    const continuityFromPrev = prevExitState || scrub(cleanReferenceText(seg.continuity_note));
     const resolvedSpatialLayout = resolveSpatialLayout({
       layout: seg.spatial_layout,
       setting: seg.first_frame_prompt,
-      motion: seg.motion_prompt,
-      characterNames: seg.characters_in_scene,
+      motion: mainAction,
+      characterNames: onScreen,
+      startState: entryState,
+      endState: exitState,
+      continuityFromPrevious: continuityFromPrev,
     });
     const spatialTopology = resolvedSpatialLayout
       ? {
@@ -2332,21 +2390,19 @@ export function buildVeoJson(
           character_placement: scrub(cleanReferenceText(resolvedSpatialLayout.character_placement)),
           walkable_path: scrub(cleanReferenceText(resolvedSpatialLayout.walkable_path)),
           camera_zone: scrub(cleanReferenceText(resolvedSpatialLayout.camera_zone)),
+          // Kinematic law for moving architecture (revolving door…): one
+          // rotation direction, one occupied compartment, one crossing.
+          ...(resolvedSpatialLayout.mechanism_motion
+            ? {
+                mechanism_motion: scrub(
+                  cleanReferenceText(resolvedSpatialLayout.mechanism_motion)
+                ),
+              }
+            : {}),
           invariants: SPATIAL_TOPOLOGY_INVARIANTS,
           seat_relative_placement_lock: SEAT_RELATIVE_PLACEMENT_LOCK,
         }
       : null;
-    // CROSS-CLIP CONTINUITY: what the PREVIOUS clip actually ended on — this is
-    // what this clip must open from. The old code mislabelled this as the
-    // current clip's own continuity_note, so a clip could open in a state that
-    // contradicted the previous clip's ending (e.g. one character already
-    // seated / standing before the beat that moves them). Falls back to this
-    // clip's own note for the very first clip (no predecessor).
-    const prevSeg = segIndex > 0 ? breakdown.segments[segIndex - 1] : null;
-    const prevExitState = prevSeg
-      ? scrub(cleanReferenceText(prevSeg.scene_intent?.entry_exit?.exit_state)) || scrub(cleanReferenceText(prevSeg.continuity_note))
-      : "";
-    const continuityFromPrev = prevExitState || scrub(cleanReferenceText(seg.continuity_note));
     const characterLock = Object.fromEntries(
       visibleLocks.map((lock) => {
         const id = charIds.get(lock.name.trim().toLowerCase()) || "CHAR_1";
@@ -2540,7 +2596,7 @@ export function buildVeoJson(
         framing: camera.framing,
         angle: camera.angle,
         movement: `ONE CONTINUOUS TAKE, no cuts or timed camera schedule. ${scrub(camera.movement)}. One calm motivated hold or smooth reframe; start and end settled.`,
-        focus: "Natural optical depth of field; freely observe speaker, listener reaction, both, or the interacted prop according to the scene intent.",
+        focus: VEO_CAMERA_FOCUS_RULE,
       },
       scene_action: {
         start_state: entryState,
